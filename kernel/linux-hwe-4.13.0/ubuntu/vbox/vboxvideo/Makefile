@@ -42,11 +42,11 @@ else
 MOD_OBJS   = vbox_dummy.o
 endif
 
-ifneq ($(wildcard $(KBUILD_EXTMOD)/vboxvideo),)
- MANGLING := $(KBUILD_EXTMOD)/vboxvideo/include/VBox/VBoxGuestMangling.h
-else
- MANGLING := $(KBUILD_EXTMOD)/include/VBox/VBoxGuestMangling.h
-endif
+#ifneq ($(wildcard $(KBUILD_EXTMOD)/vboxvideo),)
+# MANGLING := $(KBUILD_EXTMOD)/vboxvideo/include/VBox/VBoxGuestMangling.h
+#else
+MANGLING := $(KBUILD_EXTMOD)/include/VBox/VBoxGuestMangling.h
+#endif
 MOD_CFLAGS = -Wno-declaration-after-statement -fshort-wchar -fno-pie
 ifneq ($(KERN_VERSION),24)
 MOD_CFLAGS += -include $(MANGLING)
