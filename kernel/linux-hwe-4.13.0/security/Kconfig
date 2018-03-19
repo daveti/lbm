@@ -280,6 +280,8 @@ source security/apparmor/Kconfig
 source security/loadpin/Kconfig
 source security/yama/Kconfig
 
+source secruity/lbm/Kconfig
+
 source security/integrity/Kconfig
 
 menu "Security Module Selection"

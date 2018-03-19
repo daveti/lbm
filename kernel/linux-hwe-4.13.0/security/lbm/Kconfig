@@ -1,0 +1,10 @@
+config LBM
+	bool "LBM support"
+	depends on SECURITY
+	depends on BPF
+	depends on BPF_JIT
+	default y
+	help
+	  Linux (e)BPF Modules for peripheral security for the Linux kernel
+
+	  If you are unsure how to answer this question, answer N.
