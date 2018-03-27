@@ -19,6 +19,10 @@
 #define USB_MAXCONFIG			8	/* Arbitrary limit */
 
 
+/* daveti: for lbm debug */
+static int lbm_debug_usb_config = 1;
+
+
 static inline const char *plural(int n)
 {
 	return (n == 1 ? "" : "s");
@@ -877,6 +881,19 @@ int usb_get_configuration(struct usb_device *dev)
 		}
 
 		dev->rawdescriptors[cfgno] = bigbuffer;
+
+		/*
+		 * daveti: here we get the raw buffer of one config from the device.
+		 * One way is to deploy front lbm hooks here, which however only
+		 * works for USB enumeration. A better way to is deploy this for each
+		 * DMA buffer receive...
+		 * Mar 26, 2018
+		 */
+		if (lbm_debug_usb_config) {
+			pr_info("lbm-debug-usb-config: cfgno [%d], length [%d]\n", cfgno, length);
+			print_hex_dump(KERN_INFO, "Cfg: ", DUMP_PREFIX_NONE, 16, 1,
+				bigbuffer, length, 0);
+		}
 
 		result = usb_parse_configuration(dev, cfgno,
 		    &dev->config[cfgno], bigbuffer, length);

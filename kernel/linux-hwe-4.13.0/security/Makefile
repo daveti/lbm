@@ -32,3 +32,7 @@ obj-$(CONFIG_INTEGRITY)			+= integrity/
 
 # Allow the kernel to be locked down
 obj-$(CONFIG_LOCK_DOWN_KERNEL)		+= lock_down.o
+
+# LBM support
+subdir-$(CONFIG_LBM)			+= lbm
+obj-$(CONFIG_LBM)			+= lbm/

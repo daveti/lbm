@@ -114,6 +114,9 @@ static DEFINE_SPINLOCK(hcd_urb_unlink_lock);
 /* wait queue for synchronous unlinks */
 DECLARE_WAIT_QUEUE_HEAD(usb_kill_urb_queue);
 
+/* daveti: lbm debug */
+static int lbm_debug_usb_hcd = 1;
+
 static inline int is_root_hub(struct usb_device *udev)
 {
 	return (udev->parent == NULL);
@@ -1757,6 +1760,49 @@ static void __usb_hcd_giveback_urb(struct urb *urb)
 
 	unmap_urb_for_dma(hcd, urb);
 	usbmon_urb_complete(&hcd->self, urb, status);
+
+	/* daveti: lbm usb look into each pkt received */
+	if (lbm_debug_usb_hcd) {
+		pr_info("lbm-debug-usb-hcd: URB [%p] giveback (IRQ ctx [%d]) for device: "
+			"(devnum [%d], devpath [%s], product [%s], manufacturer [%s], serial [%s]), "
+			"with pipe (type [%d], in [%d], endpoint [%d], devaddr [%d]), "
+			"with status [%d], transfer buffer len [%d], actual len [%d]\n",
+			urb, in_interrupt(),
+			urb->dev->devnum,
+			(urb->dev->devpath ? urb->dev->devpath : "UNKNOWN"),
+			(urb->dev->product ? urb->dev->product : "UNKNOWN"),
+			(urb->dev->manufacturer ? urb->dev->manufacturer : "UNKNOWN"),
+			(urb->dev->serial ? urb->dev->serial : "UNKNOWN"),
+			usb_pipetype(urb->pipe),
+			usb_pipein(urb->pipe),
+			usb_pipeendpoint(urb->pipe),
+			usb_pipedevice(urb->pipe),
+			urb->status,
+			urb->transfer_buffer_length,
+			urb->actual_length);
+
+		/* Dump the setup pkt if available */
+		if (urb->setup_packet) {
+			struct usb_ctrlrequest *ctrl_req = (struct usb_ctrlrequest *)urb->setup_packet;
+			pr_info("lbm-debug-usb-hcd: URB with setup packet: "
+				"bRequestType [%x], bRequest [%x], wValue [%x], wIndex [%x], wLength [%x]\n",
+				ctrl_req->bRequestType,
+				ctrl_req->bRequest,
+				ctrl_req->wValue,
+				ctrl_req->wIndex,
+				ctrl_req->wLength);
+		}
+
+		/* Dump status and the IN buffer */
+		if (usb_pipein(urb->pipe)) {
+			if (urb->transfer_buffer)
+				print_hex_dump(KERN_INFO, "IN ", DUMP_PREFIX_NONE, 16, 1,
+					urb->transfer_buffer, urb->actual_length, 0);
+		}
+        }
+
+	/* daveti: TODO: this should be the front hook */
+
 	usb_anchor_suspend_wakeups(anchor);
 	usb_unanchor_urb(urb);
 	if (likely(status == 0))

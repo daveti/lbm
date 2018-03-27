@@ -9,4 +9,17 @@
  * published by the Free Software Foundation.
  *
  */
+#include <linux/module.h>
+#include <linux/lbm.h>
 
+/* init/exit */
+int lbm_init(void)
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(lbm_init);
+
+void lbm_exit(void)
+{
+}
+EXPORT_SYMBOL_GPL(lbm_exit);

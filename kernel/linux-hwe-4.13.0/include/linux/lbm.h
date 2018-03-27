@@ -8,6 +8,7 @@
 #define LBM_MOD_NAME_LEN		32
 #define LBM_SUBSYS_INDEX_USB		0
 #define LBM_SUBSYS_INDEX_BLUETOOTH	1
+#define LBM_SUBSYS_INDEX_NFC		2
 
 struct lbm_mod{
 	char name[LBM_MOD_NAME_LEN];
