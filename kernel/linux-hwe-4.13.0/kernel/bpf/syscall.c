@@ -23,6 +23,7 @@
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/idr.h>
+#include <linux/lbm.h>	/* daveti: for lbm */
 
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PROG_ARRAY || \
 			   (map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
@@ -1027,6 +1028,119 @@ free_prog_nouncharge:
 	return err;
 }
 
+/* daveti: bsically a combo of load + pin */
+static int bpf_prog_load_lbm(union bpf_attr *attr)
+{
+	enum bpf_prog_type type = attr->prog_type;
+	struct bpf_prog *prog;
+	int err;
+	char license[128];
+	bool is_gpl;
+
+	if (CHECK_ATTR(BPF_PROG_LOAD))
+		return -EINVAL;
+
+	if (attr->prog_flags & ~BPF_F_STRICT_ALIGNMENT)
+		return -EINVAL;
+
+	/* copy eBPF program license from user space */
+	if (strncpy_from_user(license, u64_to_user_ptr(attr->license),
+			      sizeof(license) - 1) < 0)
+		return -EFAULT;
+	license[sizeof(license) - 1] = 0;
+
+	/* eBPF programs must be GPL compatible to use GPL-ed functions */
+	is_gpl = license_is_gpl_compatible(license);
+
+	if (attr->insn_cnt == 0 || attr->insn_cnt > BPF_MAXINSNS)
+		return -E2BIG;
+
+	if (type != BPF_PROG_TYPE_LBM ||
+	    attr->kern_version != LINUX_VERSION_CODE ||
+	    !capable(CAP_SYS_ADMIN))
+		return -EINVAL;
+
+	/* plain bpf_prog allocation */
+	prog = bpf_prog_alloc(bpf_prog_size(attr->insn_cnt), GFP_USER);
+	if (!prog)
+		return -ENOMEM;
+
+	err = bpf_prog_charge_memlock(prog);
+	if (err)
+		goto free_prog_nouncharge;
+
+	prog->len = attr->insn_cnt;
+
+	err = -EFAULT;
+	if (copy_from_user(prog->insns, u64_to_user_ptr(attr->insns),
+			   bpf_prog_insn_size(prog)) != 0)
+		goto free_prog;
+
+	prog->orig_prog = NULL;
+	prog->jited = 0;
+
+	atomic_set(&prog->aux->refcnt, 1);
+	prog->gpl_compatible = is_gpl ? 1 : 0;
+
+	/* daveti: LBM needs to redirect the verifier ops to be susbsys-specific */
+	err = lbm_find_prog_sub_type(prog, attr->lbm_subsys_idx, attr->lbm_call_dir);
+	if (err < 0)
+		goto free_prog;
+
+	/* run eBPF verifier */
+	err = bpf_check(&prog, attr);
+	if (err < 0)
+		goto free_used_maps;
+
+	/* eBPF program is ready to be JITed */
+	prog = bpf_prog_select_runtime(prog, &err);
+	if (err < 0)
+		goto free_used_maps;
+
+	err = bpf_prog_alloc_id(prog);
+	if (err)
+		goto free_used_maps;
+
+	err = bpf_prog_new_fd(prog);
+	if (err < 0) {
+		/* failed to allocate fd.
+		 * bpf_prog_put() is needed because the above
+		 * bpf_prog_alloc_id() has published the prog
+		 * to the userspace and the userspace may
+		 * have refcnt-ed it through BPF_PROG_GET_FD_BY_ID.
+		 */
+		bpf_prog_put(prog);
+		return err;
+	}
+
+	/* daveti: pin the program by default */
+	err = bpf_obj_pin_user(err, u64_to_user_ptr(attr->pathname));
+	if (err < 0) {
+		pr_error("lbm-bpf-syscall-error: bpf_obj_pin_user failed with errno [%d]\n", err);
+		goto free_used_maps;
+	}
+
+	bpf_prog_kallsyms_add(prog);
+	trace_bpf_prog_load(prog, err);
+
+	/* daveti: save the bpf prog into lbm */
+	err = lbm_load_bpf_prog(prog);
+	if (err < 0) {
+		pr_error("lbm-bpf-syscall-error: lbm_load_bpf_prog failed with errno [%d]\n", err);
+		goto free_used_maps;
+	}
+
+	return err;
+
+free_used_maps:
+	free_used_maps(prog->aux);
+free_prog:
+	bpf_prog_uncharge_memlock(prog);
+free_prog_nouncharge:
+	bpf_prog_free(prog);
+	return err;
+}
+
 #define BPF_OBJ_LAST_FIELD bpf_fd
 
 static int bpf_obj_pin(const union bpf_attr *attr)
@@ -1468,6 +1582,12 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
 	case BPF_OBJ_GET_INFO_BY_FD:
 		err = bpf_obj_get_info_by_fd(&attr, uattr);
 		break;
+#ifdef CONFIG_LBM
+	/* daveti: for lbm */
+	case BPF_PROG_LOAD_LBM:
+		err = bpf_prog_load_lbm(&attr);
+		break;
+#endif
 	default:
 		err = -EINVAL;
 		break;

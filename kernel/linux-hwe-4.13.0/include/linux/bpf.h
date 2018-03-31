@@ -189,6 +189,8 @@ struct bpf_prog_aux {
 	u32 max_ctx_offset;
 	u32 stack_depth;
 	u32 id;
+	u32 lbm_subsys_idx;	/* daveti: for lbm */
+	u32 lbm_call_dir;	/* daveti: for lbm */
 	struct latch_tree_node ksym_tnode;
 	struct list_head ksym_lnode;
 	const struct bpf_verifier_ops *ops;

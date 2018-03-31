@@ -87,6 +87,7 @@ enum bpf_cmd {
 	BPF_PROG_GET_FD_BY_ID,
 	BPF_MAP_GET_FD_BY_ID,
 	BPF_OBJ_GET_INFO_BY_FD,
+	BPF_RROG_LOAD_LBM,	/* daveti: for lbm */
 };
 
 enum bpf_map_type {
@@ -121,6 +122,7 @@ enum bpf_prog_type {
 	BPF_PROG_TYPE_LWT_OUT,
 	BPF_PROG_TYPE_LWT_XMIT,
 	BPF_PROG_TYPE_SOCK_OPS,
+	BPF_PROG_TYPE_LBM,	/* daveti: new type for lbm */
 };
 
 enum bpf_attach_type {
@@ -231,6 +233,22 @@ union bpf_attr {
 		__u32		info_len;
 		__aligned_u64	info;
 	} info;
+
+	/* daveti: lbm = load + pin */
+	struct { /* anonymous struct used by BPF_PROG_LOAD_LBM command */
+		__u32		prog_type;	/* one of enum bpf_prog_type */
+		__u32		insn_cnt;
+		__aligned_u64	insns;
+		__aligned_u64	license;
+		__u32		log_level;	/* verbosity level of verifier */
+		__u32		log_size;	/* size of user buffer */
+		__aligned_u64	log_buf;	/* user supplied buffer */
+		__u32		kern_version;	/* checked when prog_type=kprobe */
+		__u32		prog_flags;
+		__u32		lbm_subsys_idx;	/* daveti: index of certain IO subsys */
+		__u32		lbm_call_dir;	/* daveti: lbm call direction - ingress/outgress/etc. */
+		__aligned_u64	pathname;	/* daveti: lbm pin automatically */
+	};
 } __attribute__((aligned(8)));
 
 /* BPF helper function descriptions:
