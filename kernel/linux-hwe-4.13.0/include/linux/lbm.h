@@ -30,7 +30,7 @@ int lbm_find_prog_sub_type(struct bpf_prog *prog, int subsys, int dir);
 int lbm_load_bpf_prog(struct bpf_prog *prog);
 
 int lbm_register_mod(struct lbm_mod *mod);
-void lbm_deregister_mod(struct lbm_mod *mod);
+int lbm_deregister_mod(struct lbm_mod *mod);
 
 int lbm_init(void);
 void lbm_exit(void);
