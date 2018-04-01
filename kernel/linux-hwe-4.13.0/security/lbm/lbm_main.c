@@ -49,6 +49,7 @@ struct lbm_mod_info {
 }
 
 static int lbm_mod_num;
+static int lbm_main_debug = 1;
 
 
 /* BPF verifier operations per subsys */
@@ -74,6 +75,18 @@ int lbm_load_bpf_prog(struct bpf_prog *prog)
 }
 
 
+static int check_mod_subsys(int idx)
+{
+	switch (idx) {
+	case LBM_SUBSYS_INDEX_USB:
+	case LBM_SUBSYS_INDEX_BLUETOOTH:
+	case LBM_SUBSYS_INDEX_NFC:
+		return 0;
+	default:
+		return -1;
+	}
+}
+
 static int find_mod_given_name(char *name)
 {
 	struct lbm_mod_info *p;
@@ -94,10 +107,16 @@ static int find_mod_given_name(char *name)
 int lbm_register_mod(struct lbm_mod *mod)
 {
 	struct lbm_mod_info *p;
+	struct lbm_bpf_mod_info *q;
 	unsigned long flags;
 
 	if (!mod) {
 		pr_error("lbm-main: null mod in %s\n", __func__);
+		return -1;
+	}
+
+	if (!check_mod_subsys(mod->subsys_index)) {
+		pr_error("lbm-main: invalid subsys index [%d]\n", mod->subsys_index);
 		return -1;
 	}
 
@@ -107,9 +126,11 @@ int lbm_register_mod(struct lbm_mod *mod)
 		return -1;
 	}
 
-	p = kmalloc(sizeof(*p), GFP_ATOMIC);
-	if (!p)
+	p = kmalloc(sizeof(*p), GFP_KERNEL);
+	if (!p) {
+		pr_error("lbm-main: kmalloc failed for mod_info\n");
 		return -ENOMEM;
+	}
 	p->mod = mod;
 
 	/* Add this mod into DB */
@@ -117,11 +138,44 @@ int lbm_register_mod(struct lbm_mod *mod)
 	hlist_add_tail_rcu(&p->entry, &lbm_mod_db);
 	lbm_mod_num++;
 	spin_unlock_irqrestore(&lbm_mod_db, flags);
+	if (lbm_main_debug)
+		pr_info("lbm-main: mod [%s] added into the mod db\n", mod->name);
 
+	/* Add into ingree and egree DBs */
 	if (mod->lbm_ingress_hook) {
+		q = kmalloc(sizeof(*q), GFP_KERNEL);
+		if (!q) {
+			pr_error("lbm-main: kmalloc failed for bpf_mod_info on ingress\n");
+			return -ENOMEM;
+		}
+		q->bpf = NULL;
+		q->mod = mod;
+		q->lbm_hook = mod->lbm_ingress_hook;
+
+		spin_lock_irqsave(&lbm_mod_ingress_lock, flags);
+		hlist_add_tail_rcu(&q->entry, &lbm_mod_ingress_db[mod->subsys_index]);
+		spin_unlock_irqrestore(&lbm_mod_ingress_lock, flags);
+		if (lbm_main_debug)
+			pr_info("lbm-main: mod [%s] added into mod ingress db for subsys [%d]\n",
+				mod->name, mod->subsys_index);
 	}
 
 	if (mod->lbm_egress_hook) {
+		q = kmalloc(sizeof(*q), GFP_KERNEL);
+		if (!q) {
+			pr_error("lbm-main: kmalloc failed for bpf_mod_info on egress\n");
+			return -ENOMEM;
+		}
+		q->bpf = NULL;
+		q->mod = mod;
+		q->lbm_hook = mod->lbm_egress_hook;
+
+		spin_lock_irqsave(&lbm_mod_egress_lock, flags);
+		hlist_add_tail_rcu(&q->entry, &lbm_mod_egress_db[mod->subsys_index]);
+		spin_unlock_irqrestore(&lbm_mod_egress_lock, flags);
+		if (lbm_main_debug)
+			pr_info("lbm-main: mod [%s] added into mod egress db for subsys [%d]\n",
+				mod->name, mod->subsys_index);
 	}
 
 	return 0;
@@ -129,10 +183,17 @@ int lbm_register_mod(struct lbm_mod *mod)
 
 int lbm_deregister_mod(struct lbm_mod *mod)
 {
+	struct lbm_mod_info *p;
+	struct lbm_bpf_mod_info *q;
 	unsigned long flags;
 
 	if (!mod) {
 		pr_error("lbm-main: null mod in %s\n", __func__);
+		return -1;
+	}
+
+	if (!check_mod_subsys(mod->subsys_index)) {
+		pr_error("lbm-main: invalid subsys index [%d]\n", mod->subsys_index);
 		return -1;
 	}
 
@@ -153,6 +214,39 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 		}
 	}
 	spin_unlock_irqrestore(&lbm_mod_db, flags);
+	if (lbm_main_debug)
+		pr_info("lbm-main: mod [%s] removed from mod db\n", mod->name);
+
+	/* Remove this from ingress and egress DBs */
+	if (mod->lbm_ingress_hook) {
+		spin_lock_irqsave(&lbm_mod_ingress_db, flags);
+		hlist_for_each_entry_rcu(q, &lbm_mod_ingress_db[mod->subsys_index], entry) {
+			if (strncasecmp(q->mod->name, mod->name, LBM_MOD_NAME_LEN) == 0) {
+				hlist_del_rcu(&q->entry);
+				kfree_rcu(q, rcu);
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&lbm_mod_ingress_db, flags);
+		if (lbm_main_debug)
+			pr_info("lbm-main: mod [%s] removed from mod ingress db for subsys [%d]\n",
+				mod->name, mod->subsys_index);
+	}
+
+	if (mod->lbm_egress_hook) {
+		spin_lock_irqsave(&lbm_mod_egress_db, flags);
+		hlist_for_each_entry_rcu(q, &lbm_mod_egress_db[mod->subsys_index], entry) {
+			if (strncasecmp(q->mod->name, mod->name, LBM_MOD_NAME_LEN) == 0) {
+				hlist_del_rcu(&q->entry);
+				kfree_rcu(q, rcu);
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&lbm_mod_egress_db, flags);
+		if (lbm_main_debug)
+			pr_info("lbm-main: mod [%s] removed from mod egress db for subsys [%d]\n",
+				mod->name, mod->subsys_index);
+	}
 
 	return 0;
 }
