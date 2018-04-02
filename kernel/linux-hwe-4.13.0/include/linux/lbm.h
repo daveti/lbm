@@ -6,6 +6,7 @@
  * https://davejingtian.org
  */
 #define LBM_MOD_NAME_LEN		32
+#define LBM_BPF_NAME_LEN		32
 #define LBM_SUBSYS_INDEX_USB		0
 #define LBM_SUBSYS_INDEX_BLUETOOTH	1
 #define LBM_SUBSYS_INDEX_NFC		2
@@ -27,7 +28,7 @@ struct lbm_mod{
 int lbm_filter_pkt(int subsys, int dir, void *pkt);
 
 int lbm_find_prog_sub_type(struct bpf_prog *prog, int subsys, int dir);
-int lbm_load_bpf_prog(struct bpf_prog *prog);
+int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name);
 
 int lbm_register_mod(struct lbm_mod *mod);
 int lbm_deregister_mod(struct lbm_mod *mod);

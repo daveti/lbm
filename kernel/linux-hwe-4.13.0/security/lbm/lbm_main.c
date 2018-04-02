@@ -11,11 +11,14 @@
  */
 #include <linux/module.h>
 #include <linux/types.h>
+#include <linux/bpf.h>
 #include <linux/filter.h>
 #include <linux/string.h>
 #include <linux/rculist.h>
 #include <linux/lbm.h>
 #include "lbm_usb.h"
+#include "lbm_bluetooth.h"
+#include "lbm_nfc.h"
 
 #define LBM_SUB_SYS_NUM_MAX		16
 #define LBM_MOD_NUM_MAX			32	/* not used for now */
@@ -41,6 +44,7 @@ struct lbm_bpf_mod_info {
 	struct bpf_prog *bpf;
 	struct lbm_mod *mod;
 	int (*lbm_hook)(void *pkt);
+	char bpf_name[LBM_BPF_NAME_LEN];	/* A better place may be bpf_prog but it is only used by lbm, so here is fine */
 };
 
 struct lbm_mod_info {
@@ -61,6 +65,22 @@ const struct bpf_verifier_ops lbm_usb_prog_ops = {
 	.test_run               = lbm_usb_test_run_urb,
 };
 
+const struct bpf_verifier_ops lbm_bluetooth_prog_ops = {
+	.get_func_proto         = lbm_bluetooth_func_proto,
+	.is_valid_access        = lbm_bluetooth_is_valid_access,
+	.convert_ctx_access     = lbm_bluetooth_convert_ctx_access,
+	.gen_prologue           = lbm_bluetooth_prologue,
+	.test_run               = lbm_bluetooth_test_run_urb,
+};
+
+const struct bpf_verifier_ops lbm_nfc_prog_ops = {
+	.get_func_proto         = lbm_nfc_func_proto,
+	.is_valid_access        = lbm_nfc_is_valid_access,
+	.convert_ctx_access     = lbm_nfc_convert_ctx_access,
+	.gen_prologue           = lbm_nfc_prologue,
+	.test_run               = lbm_nfc_test_run_urb,
+};
+
 
 int lbm_filter_pkt(int subsys, int dir, void *pkt)
 {
@@ -68,14 +88,130 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 
 int lbm_find_prog_sub_type(struct bpf_prog *prog, int subsys, int dir)
 {
+	struct bpf_verifier_ops *ops;
+	/* Caller guaranteed null check */
+
+	switch (subsys) {
+	case LBM_SUBSYS_INDEX_USB:
+		ops = lbm_usb_prog_ops;
+		break;
+	case LBM_SUBSYS_INDEX_BLUETOOTH:
+		ops = lbm_bluetooth_prog_ops;
+		break;
+	case LBM_SUBSYS_INDEX_NFC:
+		ops = lbm_nfc_prog_ops;
+		break;
+	default:
+		pr_error("lbm-main: unsupported subsys [%d] in [%s]\n",
+			subsys, __func__);
+		return -1;
+	}
+
+	prog->aux->ops = ops;
+	prog->aux->lbm_subsys_index = subsys;
+	prog->aux->lbm_call_dir = dir;
+	prog->type = BPF_PROG_TYPE_LBM;		/* TODO: shall we consider a subtype here? */
+
+	return 0;
 }
 
-int lbm_load_bpf_prog(struct bpf_prog *prog)
+static int find_bpf_given_name_db(char *name, struct hlist_head *db)
 {
+	struct lbm_bpf_mod_info *p;
+	int exist = 0;
+
+	rcu_read_lock();
+	hlist_for_each_entry_rcu(p, db, entry) {
+		if (unlikely(strncasecmp(p->bpf_name, name, LBM_BPF_NAME_LEN) == 0)) {
+			exist = 1;
+			break;
+		}
+	}
+	rcu_read_unlock();
+
+	return exist;
+}
+
+static int find_bpf_given_name(char *name, int subsys)
+{
+	int i;
+
+	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
+		if ((find_bpf_given_name_db(name, &lbm_bpf_ingress_db[i])) || 
+			(find_bpf_given_name_db(name, &lbm_bpf_egress_db[i])))
+			return 1;
+	}
+
+	return 0;
+}
+
+int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
+{
+	struct lbm_bpf_mod_info *p;
+	char tmp_name[LBM_BPF_NAME_LEN];
+	int len;
+
+	/* Check subsys */
+	if (check_subsys(prog->aux->lbm_subsys_index)) {
+		pr_error("lbm-main: invalid subsys [%d] in %s\n",
+			prog->aux->lbm_subsys_index, __func__);
+		return -1;
+	}
+
+	/* Check calldir */
+	if (check_calldir(prog->aux->lbm_call_dir)) {
+		pr_error("lbm-main: invalid calldir [%d] in %s\n",
+			prog->aux->lbm_call_dir, __func__);
+		return -1;
+	}
+
+	/* Get the bpf name */
+	memset(tmp_name, 0x0, LBM_BPF_NAME_LEN);
+	len = strncpy_from_user(tmp_name, name, LBM_BPF_NAME_LEN);
+	if (unlikely(len < 0)) {
+		pr_error("lbm-main: strncpy_from_user failed within %s\n", __func__);
+		return -1;
+	}
+	if (unlikely(len == LBM_BPF_NAME_LEN)) {
+		pr_warn("lbm-main: name length beyond limit within %s - truncated\n", __func__);
+		tmp_name[LBM_BPF_NAME_LEN-1] = '\0';
+	}
+
+	/* Make sure it does not exist */
+	if (find_bpf_given_name(tmp_name, prog->aux->lbm_subsys_index)) {
+		pr_error("lbm-main: existing bpf found during %s - aborted\n", __func__);
+		return -1;
+	}
+
+	/* Alloc a bpf_mod_info */
+	p = kmalloc(sizeof(*p), GFP_KERNEL);
+	if (!p) {
+		pr_error("lbm-main: kmalloc failed within %s\n", __func__);
+		return -1;
+	}
+	p->mod = NULL;
+	p->lbm_hook = NULL;
+	memcpy(p->bpf_name, tmp_name, LBM_BPF_NAME_LEN);
+
+	/* Add into DBs */
+
+	return 0;
 }
 
 
-static int check_mod_subsys(int idx)
+static int check_calldir(int dir)
+{
+	switch (dir) {
+	case LBM_CALL_DIR_INGRESS:
+	case LBM_CALL_DIR_EGRESS:
+	case LBM_CALL_DIR_INEGRESS:
+		return 0;
+	default:
+		return -1;
+	}
+}
+
+static int check_subsys(int idx)
 {
 	switch (idx) {
 	case LBM_SUBSYS_INDEX_USB:
@@ -115,7 +251,7 @@ int lbm_register_mod(struct lbm_mod *mod)
 		return -1;
 	}
 
-	if (!check_mod_subsys(mod->subsys_index)) {
+	if (!check_subsys(mod->subsys_index)) {
 		pr_error("lbm-main: invalid subsys index [%d]\n", mod->subsys_index);
 		return -1;
 	}
@@ -192,7 +328,7 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 		return -1;
 	}
 
-	if (!check_mod_subsys(mod->subsys_index)) {
+	if (!check_subsys(mod->subsys_index)) {
 		pr_error("lbm-main: invalid subsys index [%d]\n", mod->subsys_index);
 		return -1;
 	}

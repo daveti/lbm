@@ -1124,7 +1124,7 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	trace_bpf_prog_load(prog, err);
 
 	/* daveti: save the bpf prog into lbm */
-	err = lbm_load_bpf_prog(prog);
+	err = lbm_load_bpf_prog(prog, u64_to_user_ptr(attr->lbm_bpf_name));
 	if (err < 0) {
 		pr_error("lbm-bpf-syscall-error: lbm_load_bpf_prog failed with errno [%d]\n", err);
 		goto free_used_maps;

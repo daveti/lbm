@@ -248,6 +248,7 @@ union bpf_attr {
 		__u32		lbm_subsys_idx;	/* daveti: index of certain IO subsys */
 		__u32		lbm_call_dir;	/* daveti: lbm call direction - ingress/outgress/etc. */
 		__aligned_u64	pathname;	/* daveti: lbm pin automatically */
+		__aligned_u64	lbm_bpf_name;	/* daveti: used by lbm sysfs */
 	};
 } __attribute__((aligned(8)));
 
