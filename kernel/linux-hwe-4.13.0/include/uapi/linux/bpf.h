@@ -9,6 +9,7 @@
 
 #include <linux/types.h>
 #include <linux/bpf_common.h>
+#include <linux/lbm_bpf.h>	/* daveti: for lbm */
 
 /* Extended instruction set based on top of classic BPF */
 
@@ -618,6 +619,7 @@ union bpf_attr {
 #define __BPF_ENUM_FN(x) BPF_FUNC_ ## x
 enum bpf_func_id {
 	__BPF_FUNC_MAPPER(__BPF_ENUM_FN)
+	__LBM_BPF_FUNC_MAPPER(__BPF_ENUM_FN)	/* daveti: append lbm bpf calls */
 	__BPF_FUNC_MAX_ID,
 };
 #undef __BPF_ENUM_FN

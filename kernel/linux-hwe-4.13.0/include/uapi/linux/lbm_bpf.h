@@ -4,8 +4,8 @@
  * Apr 3, 2018
  * root@davejingtian.org
  */
-#ifndef __LINUX_LBM_BPF_H__
-#define __LINUX_LBM_BPF_H__
+#ifndef _UAPI__LINUX_LBM_BPF_H__
+#define _UAPI__LINUX_LBM_BPF_H__
 
 /* lbm defined bpf helpers */
 #define __LBM_BPF_FUNC_MAPPER(FN)		\
@@ -21,4 +21,4 @@
 	FN(lbm_usb_load_setup_packet),		\
 	FN(lbm_usb_load_transfer_buffer),		
 
-#endif /* __LINUX_LBM_BPF_H__ */
+#endif /* _UAPI__LINUX_LBM_BPF_H__ */
