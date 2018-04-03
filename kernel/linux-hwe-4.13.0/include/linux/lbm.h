@@ -5,6 +5,9 @@
  * root@davejingtian.org
  * https://davejingtian.org
  */
+#ifndef __LINUX_LBM_H__
+#define __LINUX_LBM_H__
+
 #define LBM_MOD_NAME_LEN		32
 #define LBM_BPF_NAME_LEN		32
 #define LBM_SUBSYS_INDEX_USB		0
@@ -35,3 +38,5 @@ int lbm_deregister_mod(struct lbm_mod *mod);
 
 int lbm_init(void);
 void lbm_exit(void);
+
+#endif /* __LINUX_LBM_H__ */
