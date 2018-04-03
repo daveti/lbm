@@ -82,8 +82,80 @@ const struct bpf_verifier_ops lbm_nfc_prog_ops = {
 };
 
 
+/* Essential filter function used by different subsys */
 int lbm_filter_pkt(int subsys, int dir, void *pkt)
 {
+	struct lbm_bpf_mod_info *p;
+	int res;
+
+	/* Defensive checking */
+	if (!pkt) {
+		pr_error("%s: null pkt -- aborted\n", __func__);
+		return -1;
+	}
+	if (check_subsys(subsys)) {
+		pr_error("%s: invalid subsys [%d]\n", __func__, subsys);
+		return -1;
+	}
+	if (check_calldir(dir)) {
+		pr_error("%s: invalid calldir [%d]\n", __func__, dir);
+		return -1;
+	}
+
+	/* Run the damn bpf/mod
+	 * Current policy is to stop until we hit the first drop.
+	 * TODO: expose policy to the user space to speed up here.
+	 */
+	res = LBM_RES_ALLOW;
+	if ((dir == LBM_CALL_DIR_INGRESS) ||
+		(dir == LBM_CALL_DIR_INEGRESS)) {
+		/* BPF */
+		rcu_read_lock();
+		hlist_for_each_entry_rcu(p, &lbm_bpf_ingress_db[subsys], entry) {
+			res = BPF_PROG_RUN(p->bpf, pkt);
+			if (res == LBM_RES_DROP)
+				break;
+		}
+		rcu_read_unlock();
+		if (res == LBM_RES_DROP)
+			goto filter_pkt_early_ret;
+
+		/* MOD */
+		rcu_read_lock();
+		hlist_for_each_entry_rcu(p, &lbm_mod_ingress_db[subsys], entry) {
+			res = p->lbm_hook(pkt);
+			if (res == LBM_RES_DROP)
+				break;
+		}
+		rcu_read_unlock();
+		if (res == LBM_RES_DROP)
+			goto filter_pkt_early_ret;
+	}
+	if ((dir == LBM_CALL_DIR_EGRESS) ||
+		(dir == LBM_CALL_DIR_INEGRESS)) {
+		/* BPF */
+		rcu_read_lock();
+		hlist_for_each_entry_rcu(p, &lbm_bpf_egress_db[subsys], entry) {
+			res = BPF_PROG_RUN(p->bpf, pkt);
+			if (res == LBM_RES_DROP)
+				break;
+		}
+		rcu_read_unlock();
+		if (res == LBM_RES_DROP)
+			goto filter_pkt_early_ret;
+
+		/* MOD */
+		rcu_read_lock();
+		hlist_for_each_entry_rcu(p, &lbm_mod_egress_db[subsys], entry) {
+			res = p->lbm_hook(pkt);
+			if (res == LBM_RES_DROP)
+				break;
+		}
+		rcu_read_unlock();
+	}
+
+filter_pkt_early_ret:
+	return res;
 }
 
 int lbm_find_prog_sub_type(struct bpf_prog *prog, int subsys, int dir)
@@ -149,6 +221,7 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 {
 	struct lbm_bpf_mod_info *p;
 	char tmp_name[LBM_BPF_NAME_LEN];
+	unsigned long flags;
 	int len;
 
 	/* Check subsys */
@@ -191,15 +264,34 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 	}
 	p->mod = NULL;
 	p->lbm_hook = NULL;
+	p->bpf = prog;
 	memcpy(p->bpf_name, tmp_name, LBM_BPF_NAME_LEN);
 
 	/* Add into DBs */
+	if ((prog->aux->lbm_call_dir == LBM_CALL_DIR_INGRESS) ||
+		(prog->aux->lbm_call_dir == LBM_CALL_DIR_INEGRESS)) {
+		spin_lock_irqsave(&lbm_bpf_ingress_lock, flags);
+		hlist_add_tail_rcu(&p->entry, &lbm_bpf_ingress_db[prog->aux->lbm_subsys_index]);
+		spin_unlock_irqrestore(&lbm_bpf_ingress_lock, flags);
+		if (lbm_main_debug)
+			pr_info("lbm-main: bpf [%s] added into bpf ingress db for subsys [%d]\n",
+				p->bpf_name, p->bpf->aux->lbm_subsys_index);
+	}
+	if ((prog->aux->lbm_call_dir == LBM_CALL_DIR_EGRESS) ||
+		(prog->aux->lbm_call_dir == LBM_CALL_DIR_INEGRESS)) {
+		spin_lock_irqsave(&lbm_bpf_egress_lock, flags);
+		hlist_add_tail_rcu(&p->entry, &lbm_bpf_egress_db[prog->aux->lbm_subsys_index]);
+		spin_unlock_irqrestore(&lbm_bpf_egress_lock, flags);
+		if (lbm_main_debug)
+			pr_info("lbm-main: bpf [%s] added into bpf egress db for subsys [%d]\n",
+				p->bpf_name, p->bpf->aux->lbm_subsys_index);
+	}
 
 	return 0;
 }
 
 
-static int check_calldir(int dir)
+static inline int check_calldir(int dir)
 {
 	switch (dir) {
 	case LBM_CALL_DIR_INGRESS:
@@ -211,7 +303,7 @@ static int check_calldir(int dir)
 	}
 }
 
-static int check_subsys(int idx)
+static inline int check_subsys(int idx)
 {
 	switch (idx) {
 	case LBM_SUBSYS_INDEX_USB:
