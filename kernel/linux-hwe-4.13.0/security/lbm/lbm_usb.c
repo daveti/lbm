@@ -141,6 +141,122 @@ static const struct bpf_func_proto lbm_usb_has_setup_packet_proto = {
 };
 
 
+BPF_CALL_4(lbm_usb_devpath_load_bytes, struct urb *, urb, u32, offset,
+		void *, to, u32, len)
+{
+	void *ptr;
+
+	if ((unlikely(offset > strlen(urb->dev->devpath))) ||
+		(unlikely(len > strlen(urb->dev->devpath))) ||
+		(unlikely(offset+len > strlen(urb->dev->devpath))))
+		goto devpath_load_err;
+
+	memcpy(to, ptr+offset, len);
+	return 0;
+
+devpath_load_err:
+	memset(to, 0, len);
+	return -EFAULT;
+}
+
+static const struct bpf_func_proto lbm_usb_devpath_load_bytes_proto = {
+	.func           = lbm_usb_devpath_load_bytes,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
+	.arg4_type      = ARG_CONST_SIZE,
+};
+
+
+BPF_CALL_4(lbm_usb_product_load_bytes, struct urb *, urb, u32, offset,
+		void *, to, u32, len)
+{
+	void *ptr;
+
+	if ((unlikely(offset > strlen(urb->dev->product))) ||
+		(unlikely(len > strlen(urb->dev->product))) ||
+		(unlikely(offset+len > strlen(urb->dev->product))))
+		goto product_load_err;
+
+	memcpy(to, ptr+offset, len);
+	return 0;
+
+product_load_err:
+	memset(to, 0, len);
+	return -EFAULT;
+}
+
+static const struct bpf_func_proto lbm_usb_product_load_bytes_proto = {
+	.func           = lbm_usb_product_load_bytes,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
+	.arg4_type      = ARG_CONST_SIZE,
+};
+
+
+BPF_CALL_4(lbm_usb_manufacturer_load_bytes, struct urb *, urb, u32, offset,
+		void *, to, u32, len)
+{
+	void *ptr;
+
+	if ((unlikely(offset > strlen(urb->dev->manufacturer))) ||
+		(unlikely(len > strlen(urb->dev->manufacturer))) ||
+		(unlikely(offset+len > strlen(urb->dev->manufacturer))))
+		goto manufacturer_load_err;
+
+	memcpy(to, ptr+offset, len);
+	return 0;
+
+manufacturer_load_err:
+	memset(to, 0, len);
+	return -EFAULT;
+}
+
+static const struct bpf_func_proto lbm_usb_manufacturer_load_bytes_proto = {
+	.func           = lbm_usb_manufacturer_load_bytes,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
+	.arg4_type      = ARG_CONST_SIZE,
+};
+
+
+BPF_CALL_4(lbm_usb_serial_load_bytes, struct urb *, urb, u32, offset,
+		void *, to, u32, len)
+{
+	void *ptr;
+
+	if ((unlikely(offset > strlen(urb->dev->serial))) ||
+		(unlikely(len > strlen(urb->dev->serial))) ||
+		(unlikely(offset+len > strlen(urb->dev->serial))))
+		goto serial_load_err;
+
+	memcpy(to, ptr+offset, len);
+	return 0;
+
+serial_load_err:
+	memset(to, 0, len);
+	return -EFAULT;
+}
+
+static const struct bpf_func_proto lbm_usb_serial_load_bytes_proto = {
+	.func           = lbm_usb_serial_load_bytes,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
+	.arg4_type      = ARG_CONST_SIZE,
+};
+
+
 BPF_CALL_4(lbm_usb_setup_packet_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
@@ -151,7 +267,7 @@ BPF_CALL_4(lbm_usb_setup_packet_load_bytes, struct urb *, urb, u32, offset,
 		(unlikely(offset+len > sizeof(struct usb_ctrlrequest))))
 		goto setup_pkt_load_err;
 
-	memcpy(to, ptr, len);
+	memcpy(to, ptr+offset, len);
 	return 0;
 
 setup_pkt_load_err:
@@ -180,7 +296,7 @@ BPF_CALL_4(lbm_usb_transfer_buffer_load_bytes, struct urb *, urb, u32, offset,
 		(unlikely(offset+len > urb->actual_length)))
 		goto trans_buf_load_err;
 
-	memcpy(to, ptr, len);
+	memcpy(to, ptr+offset, len);
 	return 0;
 
 trans_buf_load_err:
