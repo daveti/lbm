@@ -18,7 +18,8 @@
 	FN(lbm_usb_get_status),			\
 	FN(lbm_usb_get_transfer_buffer_length),	\
 	FN(lbm_usb_get_actual_length),		\
-	FN(lbm_usb_load_setup_packet),		\
-	FN(lbm_usb_load_transfer_buffer),		
+	FN(lbm_usb_get_setup_packet),		\
+	FN(lbm_usb_setup_packet_load_bytes),		\
+	FN(lbm_usb_transfer_buffer_load_bytes),		
 
 #endif /* _UAPI__LINUX_LBM_BPF_H__ */
