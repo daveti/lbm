@@ -1,9 +1,11 @@
 /*
- * BPF verifier ops and helper calles for lbm-usb
+ * BPF verifier ops and helper calles for lbm usb
+ * The BPF ctx is struct urb!
  * Apr 3, 2018
  * root@davejingtian.org
  */
 #include <linux/types.h>
+#include <linux/string.h>
 #include <linux/bpf.h>
 #include <linux/filter.h>
 #include <linux/usb.h>
@@ -22,52 +24,52 @@ static const struct bpf_func_proto lbm_usb_get_devnum_proto = {
 };
 
 
-BPF_CALL_1(lbm_usb_get_devpath, struct urb *, urb)
+BPF_CALL_1(lbm_usb_get_devpath_len, struct urb *, urb)
 {
-	return urb->dev->devpath;
+	return strlen(urb->dev->devpath);
 }
 
-static const struct bpf_func_proto lbm_usb_get_devpath_proto = {
-	.func           = lbm_usb_get_devpath,
+static const struct bpf_func_proto lbm_usb_get_devpath_len_proto = {
+	.func           = lbm_usb_get_devpath_len,
 	.gpl_only       = false,
 	.ret_type       = RET_INTEGER,
 	.arg1_type      = ARG_PTR_TO_CTX,
 };
 
 
-BPF_CALL_1(lbm_usb_get_product, struct urb *, urb)
+BPF_CALL_1(lbm_usb_get_product_len, struct urb *, urb)
 {
-	return urb->dev->product;
+	return strlen(urb->dev->product);
 }
 
-static const struct bpf_func_proto lbm_usb_get_product_proto = {
-	.func           = lbm_usb_get_product,
+static const struct bpf_func_proto lbm_usb_get_product_len_proto = {
+	.func           = lbm_usb_get_product_len,
 	.gpl_only       = false,
 	.ret_type       = RET_INTEGER,
 	.arg1_type      = ARG_PTR_TO_CTX,
 };
 
 
-BPF_CALL_1(lbm_usb_get_manufacturer, struct urb *, urb)
+BPF_CALL_1(lbm_usb_get_manufacturer_len, struct urb *, urb)
 {
-	return urb->dev->manufacturer;
+	return strlen(urb->dev->manufacturer);
 }
 
-static const struct bpf_func_proto lbm_usb_get_manufacturer_proto = {
-	.func           = lbm_usb_get_manufacturer,
+static const struct bpf_func_proto lbm_usb_get_manufacturer_len_proto = {
+	.func           = lbm_usb_get_manufacturer_len,
 	.gpl_only       = false,
 	.ret_type       = RET_INTEGER,
 	.arg1_type      = ARG_PTR_TO_CTX,
 };
 
 
-BPF_CALL_1(lbm_usb_get_serial, struct urb *, urb)
+BPF_CALL_1(lbm_usb_get_serial_len, struct urb *, urb)
 {
-	return urb->dev->serial;
+	return strlen(urb->dev->serial);
 }
 
-static const struct bpf_func_proto lbm_usb_get_serial_proto = {
-	.func           = lbm_usb_get_serial,
+static const struct bpf_func_proto lbm_usb_get_serial_len_proto = {
+	.func           = lbm_usb_get_serial_len,
 	.gpl_only       = false,
 	.ret_type       = RET_INTEGER,
 	.arg1_type      = ARG_PTR_TO_CTX,
@@ -126,13 +128,13 @@ static const struct bpf_func_proto lbm_usb_get_actual_length_proto = {
 };
 
 
-BPF_CALL_1(lbm_usb_get_setup_packet, struct urb *, urb)
+BPF_CALL_1(lbm_usb_has_setup_packet, struct urb *, urb)
 {
-	return urb->setup_packet;
+	return (urb->setup_packet ? 1 : 0);
 }
 
-static const struct bpf_func_proto lbm_usb_get_setup_packet_proto = {
-	.func           = lbm_usb_get_setup_packet,
+static const struct bpf_func_proto lbm_usb_has_setup_packet_proto = {
+	.func           = lbm_usb_has_setup_packet,
 	.gpl_only       = false,
 	.ret_type       = RET_INTEGER,
 	.arg1_type      = ARG_PTR_TO_CTX,
@@ -201,6 +203,60 @@ static const struct bpf_func_proto lbm_usb_transfer_buffer_load_bytes_proto = {
 /* BPF verifier ops */
 const struct bpf_func_proto *lbm_usb_func_proto(enum bpf_func_id func_id)
 {
+	switch (func_id) {
+	/* Common ones */
+	case BPF_FUNC_map_lookup_elem:
+		return &bpf_map_lookup_elem_proto;
+	case BPF_FUNC_map_update_elem:
+		return &bpf_map_update_elem_proto;
+	case BPF_FUNC_map_delete_elem:
+		return &bpf_map_delete_elem_proto;
+	case BPF_FUNC_get_prandom_u32:
+		return &bpf_get_prandom_u32_proto;
+	case BPF_FUNC_get_smp_processor_id:
+		return &bpf_get_raw_smp_processor_id_proto;
+	case BPF_FUNC_get_numa_node_id:
+		return &bpf_get_numa_node_id_proto;
+	case BPF_FUNC_tail_call:
+		return &bpf_tail_call_proto;
+	case BPF_FUNC_ktime_get_ns:
+		return &bpf_ktime_get_ns_proto;
+	/* lbm usb specific */
+	case BPF_FUNC_lbm_usb_get_devnum:
+		return &lbm_usb_get_devnum_proto;
+	case BPF_FUNC_lbm_usb_get_devpath_len:
+		return &lbm_usb_get_devpath_len_proto;
+	case BPF_FUNC_lbm_usb_get_product_len:
+		return &lbm_usb_get_product_len_proto;
+	case BPF_FUNC_lbm_usb_get_manufacturer_len:
+		return &lbm_usb_get_manufacturer_len_proto;
+	case BPF_FUNC_lbm_usb_get_serial_len:
+		return &lbm_usb_get_serial_len_proto;
+	case BPF_FUNC_lbm_usb_get_pipe:
+		return &lbm_usb_get_pipe_proto;
+	case BPF_FUNC_lbm_usb_get_status:
+		return &lbm_usb_get_status_proto;
+	case BPF_FUNC_lbm_usb_get_transfer_buffer_length:
+		return &lbm_usb_get_transfer_buffer_length_proto;
+	case BPF_FUNC_lbm_usb_get_actual_length:
+		return &lbm_usb_get_actual_length_proto;
+	case BPF_FUNC_lbm_usb_has_setup_packet:
+		return &lbm_usb_get_setup_packet_proto;
+	case BPF_FUNC_lbm_usb_devpath_load_bytes:
+		return &lbm_usb_devpath_load_bytes_proto;
+	case BPF_FUNC_lbm_usb_product_load_bytes:
+		return &lbm_usb_product_load_bytes_proto;
+	case BPF_FUNC_lbm_usb_manufacturer_load_bytes:
+		return &lbm_usb_manufacturer_load_bytes_proto;
+	case BPF_FUNC_lbm_usb_serial_load_bytes:
+		return &lbm_usb_serial_load_bytes_proto;
+	case BPF_FUNC_lbm_usb_setup_packet_load_bytes:
+		return &lbm_usb_setup_packet_load_bytes_proto;
+	case BPF_FUNC_lbm_usb_transfer_buffer_load_bytes:
+		return &lbm_usb_transfer_buffer_load_bytes_proto;
+	default:
+		return NULL;
+	}
 }
 
 bool lbm_usb_is_valid_access(int off, int size,
