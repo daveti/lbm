@@ -9,6 +9,7 @@
 #include <linux/bpf.h>
 #include <linux/filter.h>
 #include <linux/usb.h>
+#include <uapi/include/lbm_bpf.h>
 
 /* BPF helpers */
 BPF_CALL_1(lbm_usb_get_devnum, struct urb *, urb)
@@ -76,82 +77,15 @@ static const struct bpf_func_proto lbm_usb_get_serial_len_proto = {
 };
 
 
-BPF_CALL_1(lbm_usb_get_pipe, struct urb *, urb)
-{
-	return urb->pipe;
-}
-
-static const struct bpf_func_proto lbm_usb_get_pipe_proto = {
-	.func           = lbm_usb_get_pipe,
-	.gpl_only       = false,
-	.ret_type       = RET_INTEGER,
-	.arg1_type      = ARG_PTR_TO_CTX,
-};
-
-
-BPF_CALL_1(lbm_usb_get_status, struct urb *, urb)
-{
-	return urb->status;
-}
-
-static const struct bpf_func_proto lbm_usb_get_status_proto = {
-	.func           = lbm_usb_get_status,
-	.gpl_only       = false,
-	.ret_type       = RET_INTEGER,
-	.arg1_type      = ARG_PTR_TO_CTX,
-};
-
-
-BPF_CALL_1(lbm_usb_get_transfer_buffer_length, struct urb *, urb)
-{
-	return urb->transfer_buffer_length;
-}
-
-static const struct bpf_func_proto lbm_usb_get_transfer_buffer_length_proto = {
-	.func           = lbm_usb_get_transfer_buffer_length,
-	.gpl_only       = false,
-	.ret_type       = RET_INTEGER,
-	.arg1_type      = ARG_PTR_TO_CTX,
-};
-
-
-BPF_CALL_1(lbm_usb_get_actual_length, struct urb *, urb)
-{
-	return urb->actual_length;
-}
-
-static const struct bpf_func_proto lbm_usb_get_actual_length_proto = {
-	.func           = lbm_usb_get_actual_length,
-	.gpl_only       = false,
-	.ret_type       = RET_INTEGER,
-	.arg1_type      = ARG_PTR_TO_CTX,
-};
-
-
-BPF_CALL_1(lbm_usb_has_setup_packet, struct urb *, urb)
-{
-	return (urb->setup_packet ? 1 : 0);
-}
-
-static const struct bpf_func_proto lbm_usb_has_setup_packet_proto = {
-	.func           = lbm_usb_has_setup_packet,
-	.gpl_only       = false,
-	.ret_type       = RET_INTEGER,
-	.arg1_type      = ARG_PTR_TO_CTX,
-};
-
-
 BPF_CALL_4(lbm_usb_devpath_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	void *ptr;
-
 	if ((unlikely(offset > strlen(urb->dev->devpath))) ||
 		(unlikely(len > strlen(urb->dev->devpath))) ||
 		(unlikely(offset+len > strlen(urb->dev->devpath))))
 		goto devpath_load_err;
 
-	memcpy(to, ptr+offset, len);
+	memcpy(to, (void *)urb->dev->path+offset, len);
 	return 0;
 
 devpath_load_err:
@@ -173,14 +107,12 @@ static const struct bpf_func_proto lbm_usb_devpath_load_bytes_proto = {
 BPF_CALL_4(lbm_usb_product_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	void *ptr;
-
 	if ((unlikely(offset > strlen(urb->dev->product))) ||
 		(unlikely(len > strlen(urb->dev->product))) ||
 		(unlikely(offset+len > strlen(urb->dev->product))))
 		goto product_load_err;
 
-	memcpy(to, ptr+offset, len);
+	memcpy(to, (void *)urb->dev->product+offset, len);
 	return 0;
 
 product_load_err:
@@ -202,14 +134,12 @@ static const struct bpf_func_proto lbm_usb_product_load_bytes_proto = {
 BPF_CALL_4(lbm_usb_manufacturer_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	void *ptr;
-
 	if ((unlikely(offset > strlen(urb->dev->manufacturer))) ||
 		(unlikely(len > strlen(urb->dev->manufacturer))) ||
 		(unlikely(offset+len > strlen(urb->dev->manufacturer))))
 		goto manufacturer_load_err;
 
-	memcpy(to, ptr+offset, len);
+	memcpy(to, (void *)urb->dev->manufacturer+offset, len);
 	return 0;
 
 manufacturer_load_err:
@@ -231,14 +161,12 @@ static const struct bpf_func_proto lbm_usb_manufacturer_load_bytes_proto = {
 BPF_CALL_4(lbm_usb_serial_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	void *ptr;
-
 	if ((unlikely(offset > strlen(urb->dev->serial))) ||
 		(unlikely(len > strlen(urb->dev->serial))) ||
 		(unlikely(offset+len > strlen(urb->dev->serial))))
 		goto serial_load_err;
 
-	memcpy(to, ptr+offset, len);
+	memcpy(to, (void *)urb->dev->serial+offset, len);
 	return 0;
 
 serial_load_err:
@@ -260,14 +188,12 @@ static const struct bpf_func_proto lbm_usb_serial_load_bytes_proto = {
 BPF_CALL_4(lbm_usb_setup_packet_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	void *ptr;
-
 	if ((unlikely(offset > sizeof(struct usb_ctrlrequest))) ||
 		(unlikely(len > sizeof(struct usb_ctrlrequest))) ||
 		(unlikely(offset+len > sizeof(struct usb_ctrlrequest))))
 		goto setup_pkt_load_err;
 
-	memcpy(to, ptr+offset, len);
+	memcpy(to, (void *)urb->setup_packet+offset, len);
 	return 0;
 
 setup_pkt_load_err:
@@ -289,14 +215,12 @@ static const struct bpf_func_proto lbm_usb_setup_packet_load_bytes_proto = {
 BPF_CALL_4(lbm_usb_transfer_buffer_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	void *ptr;
-
 	if ((unlikely(offset > urb->actual_length)) ||
 		(unlikely(len > urb->actual_length)) ||
 		(unlikely(offset+len > urb->actual_length)))
 		goto trans_buf_load_err;
 
-	memcpy(to, ptr+offset, len);
+	memcpy(to, (void *)urb->transfer_buffer+offset, len);
 	return 0;
 
 trans_buf_load_err:
@@ -348,16 +272,6 @@ const struct bpf_func_proto *lbm_usb_func_proto(enum bpf_func_id func_id)
 		return &lbm_usb_get_manufacturer_len_proto;
 	case BPF_FUNC_lbm_usb_get_serial_len:
 		return &lbm_usb_get_serial_len_proto;
-	case BPF_FUNC_lbm_usb_get_pipe:
-		return &lbm_usb_get_pipe_proto;
-	case BPF_FUNC_lbm_usb_get_status:
-		return &lbm_usb_get_status_proto;
-	case BPF_FUNC_lbm_usb_get_transfer_buffer_length:
-		return &lbm_usb_get_transfer_buffer_length_proto;
-	case BPF_FUNC_lbm_usb_get_actual_length:
-		return &lbm_usb_get_actual_length_proto;
-	case BPF_FUNC_lbm_usb_has_setup_packet:
-		return &lbm_usb_get_setup_packet_proto;
 	case BPF_FUNC_lbm_usb_devpath_load_bytes:
 		return &lbm_usb_devpath_load_bytes_proto;
 	case BPF_FUNC_lbm_usb_product_load_bytes:
@@ -379,6 +293,17 @@ bool lbm_usb_is_valid_access(int off, int size,
 				enum bpf_access_type type,
 				struct bpf_insn_access_aux *info)
 {
+	/* Make sure we are in range */
+	if (off < 0 || off >= sizeof(struct __lbm_usb))
+		return false;
+	if (off % size != 0)
+		return false;
+
+	/* Block any write for now */
+	if (type == BPF_WRITE)
+		return false;
+
+	return true;
 }
 
 u32 lbm_usb_convert_ctx_access(enum bpf_access_type type,
@@ -386,6 +311,57 @@ u32 lbm_usb_convert_ctx_access(enum bpf_access_type type,
 				struct bpf_insn *insn_buf,
 				struct bpf_prog *prog, u32 *target_size)
 {
+	struct bpf_insn *insn = insn_buf;
+
+	switch (si->off) {
+	case offsetof(struct __lbm_usb, pipe):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct urb, pipe, 4, target_size);
+		break;
+	case offsetof(struct __lbm_usb, stream_id):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct urb, stream_id, 4, target_size);
+		break;
+	case offsetof(struct __lbm_usb, status):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct urb, status, 4, target_size);
+		break;
+	case offsetof(struct __lbm_usb, transfer_flags):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct urb, transfer_flags, 4, target_size);
+		break;
+	case offsetof(struct __lbm_usb, transfer_buffer_length):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct urb, transfer_buffer_length, 4, target_size);
+		break;
+	case offsetof(struct __lbm_usb, actual_length):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct urb, actual_length, 4, target_size);
+		break;
+	case offsetof(struct __lbm_usb, setup_packet):
+		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(struct urb, setup_packet),
+				si->dst_reg, si->src_reg,
+				offsetof(struct urb, setup_packet));
+		break;
+	case offsetof(struct __lbm_usb, start_frame):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct urb, start_frame, 4, target_size);
+		break;
+	case offsetof(struct __lbm_usb, number_of_packets):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct urb, number_of_packets, 4, target_size);
+		break;
+	case offsetof(struct __lbm_usb, interval):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct urb, interval, 4, target_size);
+		break;
+	case offsetof(struct __lbm_usb, error_count):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct urb, error_count, 4, target_size);
+		break;
+	}
+
+	return insn - insn_buf;
 }
 
 int lbm_usb_prologue(struct bpf_insn *insn_buf, bool direct_write,
@@ -393,7 +369,7 @@ int lbm_usb_prologue(struct bpf_insn *insn_buf, bool direct_write,
 {
 }
 
-int lbm_test_run_skb(struct bpf_prog *prog, const union bpf_attr *kattr,
+int lbm_test_run_urb(struct bpf_prog *prog, const union bpf_attr *kattr,
 				union bpf_attr __user *uattr)
 {
 }
