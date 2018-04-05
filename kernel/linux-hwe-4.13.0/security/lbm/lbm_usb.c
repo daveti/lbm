@@ -367,10 +367,12 @@ u32 lbm_usb_convert_ctx_access(enum bpf_access_type type,
 int lbm_usb_prologue(struct bpf_insn *insn_buf, bool direct_write,
 				const struct bpf_prog *prog)
 {
+	return 0;
 }
 
 int lbm_test_run_urb(struct bpf_prog *prog, const union bpf_attr *kattr,
 				union bpf_attr __user *uattr)
 {
+	return 0;
 }
 
