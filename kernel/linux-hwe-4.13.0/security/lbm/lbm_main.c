@@ -30,6 +30,7 @@
 #define LBM_MOD_NUM_MAX			32	/* not used for now */
 #define LBM_MOD_ACT_ADD			0
 #define LBM_MOD_ACT_DEL			1
+#define LBM_TMP_BUF_LEN			128
 
 /* Global vars */
 static struct hlist_head lbm_bpf_ingress_db[LBM_SUB_SYS_NUM_MAX];
@@ -38,13 +39,11 @@ static struct hlist_head lbm_mod_ingress_db[LBM_SUB_SYS_NUM_MAX];
 static struct hlist_head lbm_mod_egress_db[LBM_SUB_SYS_NUM_MAX];
 static struct hlist_head lbm_mod_db;
 
-static DEFINE_SPINLOCK(lbm_bpf_ingress_db_lock);
+static DEFINE_SPINLOCK(lbm_bpf_ingress_db_lock);	/* TODO: mutex may be enough for db locks */
 static DEFINE_SPINLOCK(lbm_bpf_egress_db_lock);
 static DEFINE_SPINLOCK(lbm_mod_ingress_db_lock);
 static DEFINE_SPINLOCK(lbm_mod_egress_db_lock);
 static DEFINE_SPINLOCK(lbm_mod_db_lock);
-static DEFINE_SPINLOCK(lbm_usb_ingress_stats_lock);	/* can be called in the IRQ ctx */
-static DEFINE_SPINLOCK(lbm_usb_egress_stats_lock);
 
 struct lbm_bpf_mod_info {
 	struct hlist_node entry;
@@ -62,18 +61,17 @@ struct lbm_mod_info {
 };
 
 static int lbm_mod_num;
-static int lbm_main_debug = 1;
-static int lbm_bpf_debug;
-static int lbm_usb_debug = 1;
-static int lbm_bluetooth_debug;
-static int lbm_nfc_debug;
-static int lbm_usb_stats;
+static atomic_t lbm_main_debug = ATOMIC_INIT(1);
+static atomic_t lbm_bpf_debug = ATOMIC_INIT(1);
+static atomic_t lbm_usb_debug = ATOMIC_INIT(1);
+static atomic_t lbm_bluetooth_debug = ATOMIC_INIT(0);
+static atomic_t lbm_nfc_debug = ATOMIC_INIT(0);
 
 /* BPF map should be working so we literally do not need these */
-static unsigned long long lbm_usb_pkt_sent;
-static unsigned long long lbm_usb_pkt_sent_filtered;
-static unsigned long long lbm_usb_pkt_recv;
-static unsigned long long lbm_usb_pkt_recv_filtered;
+static atomic_long_t lbm_usb_pkt_sent = ATOMIC_LONG_INIT(0);
+static atomic_long_t lbm_usb_pkt_sent_filtered = ATOMIC_LONG_INIT(0);
+static atomic_long_t lbm_usb_pkt_recv = ATOMIC_LONG_INIT(0);
+static atomic_long_t lbm_usb_pkt_recv_filtered = ATOMIC_LONG_INIT(0);
 
 static struct dentry *lbm_sysfs_dir;
 static struct dentry *lbm_sysfs_debug;
@@ -518,7 +516,28 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 
 
 /* sysfs */
-static const struct file_operations lbm_sysfs_debug_ops;
+static ssize_t lbm_sysfs_debug_read(struct file *filp,
+					char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char tmp_buf[LBM_TMP_BUF_LEN];
+	ssize_t len;
+
+	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "main:%d\nbpf:%d\nusb:%d\n%"
+			"bluetooth:%d\nnfc:%d\n",
+			atomic_read(&lbm_main_debug),
+			atomic_read(&lbm_bpf_debug),
+			atomic_read(&lbm_usb_debug),
+			atomic_read(&lbm_bluetooth_debug),
+			atomic_read(&lbm_nfc_debug));
+	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static const struct file_operations lbm_sysfs_debug_ops = {
+	.read = lbm_sysfs_debug_read,
+	.write = lbm_sysfs_debug_write,
+	.llseek = generic_file_llseek,
+};
 static const struct file_operations lbm_sysfs_stats_ops;
 static const struct file_operations lbm_sysfs_mod_ops;
 static const struct file_operations lbm_sysfs_bpf_ingress_ops;
