@@ -36,7 +36,7 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name);
 int lbm_register_mod(struct lbm_mod *mod);
 int lbm_deregister_mod(struct lbm_mod *mod);
 
-int lbm_init(void);
+void lbm_init(void);
 void lbm_exit(void);
 
 #endif /* __LINUX_LBM_H__ */

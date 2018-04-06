@@ -49,15 +49,16 @@ struct lbm_bpf_mod_info {
 
 struct lbm_mod_info {
 	struct hlist_node entry;
+	struct rcu_head rcu;
 	struct lbm_mod *mod;
-}
+};
 
 static int lbm_mod_num;
 static int lbm_main_debug = 1;
 
 
 /* BPF verifier operations per subsys */
-const struct bpf_verifier_ops lbm_usb_prog_ops = {
+struct bpf_verifier_ops lbm_usb_prog_ops = {
 	.get_func_proto         = lbm_usb_func_proto,
 	.is_valid_access        = lbm_usb_is_valid_access,
 	.convert_ctx_access     = lbm_usb_convert_ctx_access,
@@ -65,21 +66,49 @@ const struct bpf_verifier_ops lbm_usb_prog_ops = {
 	.test_run               = lbm_usb_test_run_urb,
 };
 
-const struct bpf_verifier_ops lbm_bluetooth_prog_ops = {
+struct bpf_verifier_ops lbm_bluetooth_prog_ops = {
 	.get_func_proto         = lbm_bluetooth_func_proto,
 	.is_valid_access        = lbm_bluetooth_is_valid_access,
 	.convert_ctx_access     = lbm_bluetooth_convert_ctx_access,
 	.gen_prologue           = lbm_bluetooth_prologue,
-	.test_run               = lbm_bluetooth_test_run_urb,
+	.test_run               = lbm_bluetooth_test_run_skb,
 };
 
-const struct bpf_verifier_ops lbm_nfc_prog_ops = {
+struct bpf_verifier_ops lbm_nfc_prog_ops = {
 	.get_func_proto         = lbm_nfc_func_proto,
 	.is_valid_access        = lbm_nfc_is_valid_access,
 	.convert_ctx_access     = lbm_nfc_convert_ctx_access,
 	.gen_prologue           = lbm_nfc_prologue,
-	.test_run               = lbm_nfc_test_run_urb,
+	.test_run               = lbm_nfc_test_run_skb,
 };
+
+/* HACK */
+const struct bpf_verifier_ops lbm_prog_ops;
+
+/* Helpers */
+static inline int check_calldir(int dir)
+{
+	switch (dir) {
+	case LBM_CALL_DIR_INGRESS:
+	case LBM_CALL_DIR_EGRESS:
+	case LBM_CALL_DIR_INEGRESS:
+		return 0;
+	default:
+		return -1;
+	}
+}
+
+static inline int check_subsys(int idx)
+{
+	switch (idx) {
+	case LBM_SUBSYS_INDEX_USB:
+	case LBM_SUBSYS_INDEX_BLUETOOTH:
+	case LBM_SUBSYS_INDEX_NFC:
+		return 0;
+	default:
+		return -1;
+	}
+}
 
 
 /* Essential filter function used by different subsys */
@@ -90,15 +119,15 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 
 	/* Defensive checking */
 	if (!pkt) {
-		pr_error("%s: null pkt -- aborted\n", __func__);
+		pr_err("%s: null pkt -- aborted\n", __func__);
 		return -1;
 	}
 	if (check_subsys(subsys)) {
-		pr_error("%s: invalid subsys [%d]\n", __func__, subsys);
+		pr_err("%s: invalid subsys [%d]\n", __func__, subsys);
 		return -1;
 	}
 	if (check_calldir(dir)) {
-		pr_error("%s: invalid calldir [%d]\n", __func__, dir);
+		pr_err("%s: invalid calldir [%d]\n", __func__, dir);
 		return -1;
 	}
 
@@ -165,22 +194,22 @@ int lbm_find_prog_sub_type(struct bpf_prog *prog, int subsys, int dir)
 
 	switch (subsys) {
 	case LBM_SUBSYS_INDEX_USB:
-		ops = lbm_usb_prog_ops;
+		ops = &lbm_usb_prog_ops;
 		break;
 	case LBM_SUBSYS_INDEX_BLUETOOTH:
-		ops = lbm_bluetooth_prog_ops;
+		ops = &lbm_bluetooth_prog_ops;
 		break;
 	case LBM_SUBSYS_INDEX_NFC:
-		ops = lbm_nfc_prog_ops;
+		ops = &lbm_nfc_prog_ops;
 		break;
 	default:
-		pr_error("lbm-main: unsupported subsys [%d] in [%s]\n",
+		pr_err("LBM: unsupported subsys [%d] in [%s]\n",
 			subsys, __func__);
 		return -1;
 	}
 
 	prog->aux->ops = ops;
-	prog->aux->lbm_subsys_index = subsys;
+	prog->aux->lbm_subsys_idx = subsys;
 	prog->aux->lbm_call_dir = dir;
 	prog->type = BPF_PROG_TYPE_LBM;		/* TODO: shall we consider a subtype here? */
 
@@ -225,15 +254,15 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 	int len;
 
 	/* Check subsys */
-	if (check_subsys(prog->aux->lbm_subsys_index)) {
-		pr_error("lbm-main: invalid subsys [%d] in %s\n",
-			prog->aux->lbm_subsys_index, __func__);
+	if (check_subsys(prog->aux->lbm_subsys_idx)) {
+		pr_err("LBM: invalid subsys [%d] in %s\n",
+			prog->aux->lbm_subsys_idx, __func__);
 		return -1;
 	}
 
 	/* Check calldir */
 	if (check_calldir(prog->aux->lbm_call_dir)) {
-		pr_error("lbm-main: invalid calldir [%d] in %s\n",
+		pr_err("LBM: invalid calldir [%d] in %s\n",
 			prog->aux->lbm_call_dir, __func__);
 		return -1;
 	}
@@ -242,24 +271,24 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 	memset(tmp_name, 0x0, LBM_BPF_NAME_LEN);
 	len = strncpy_from_user(tmp_name, name, LBM_BPF_NAME_LEN);
 	if (unlikely(len < 0)) {
-		pr_error("lbm-main: strncpy_from_user failed within %s\n", __func__);
+		pr_err("LBM: strncpy_from_user failed within %s\n", __func__);
 		return -1;
 	}
 	if (unlikely(len == LBM_BPF_NAME_LEN)) {
-		pr_warn("lbm-main: name length beyond limit within %s - truncated\n", __func__);
+		pr_warn("LBM: name length beyond limit within %s - truncated\n", __func__);
 		tmp_name[LBM_BPF_NAME_LEN-1] = '\0';
 	}
 
 	/* Make sure it does not exist */
-	if (find_bpf_given_name(tmp_name, prog->aux->lbm_subsys_index)) {
-		pr_error("lbm-main: existing bpf found during %s - aborted\n", __func__);
+	if (find_bpf_given_name(tmp_name, prog->aux->lbm_subsys_idx)) {
+		pr_err("LBM: existing bpf found during %s - aborted\n", __func__);
 		return -1;
 	}
 
 	/* Alloc a bpf_mod_info */
 	p = kmalloc(sizeof(*p), GFP_KERNEL);
 	if (!p) {
-		pr_error("lbm-main: kmalloc failed within %s\n", __func__);
+		pr_err("LBM: kmalloc failed within %s\n", __func__);
 		return -1;
 	}
 	p->mod = NULL;
@@ -270,50 +299,28 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 	/* Add into DBs */
 	if ((prog->aux->lbm_call_dir == LBM_CALL_DIR_INGRESS) ||
 		(prog->aux->lbm_call_dir == LBM_CALL_DIR_INEGRESS)) {
-		spin_lock_irqsave(&lbm_bpf_ingress_lock, flags);
-		hlist_add_tail_rcu(&p->entry, &lbm_bpf_ingress_db[prog->aux->lbm_subsys_index]);
-		spin_unlock_irqrestore(&lbm_bpf_ingress_lock, flags);
+		spin_lock_irqsave(&lbm_bpf_ingress_db_lock, flags);
+		hlist_add_tail_rcu(&p->entry, &lbm_bpf_ingress_db[prog->aux->lbm_subsys_idx]);
+		spin_unlock_irqrestore(&lbm_bpf_ingress_db_lock, flags);
 		if (lbm_main_debug)
-			pr_info("lbm-main: bpf [%s] added into bpf ingress db for subsys [%d]\n",
-				p->bpf_name, p->bpf->aux->lbm_subsys_index);
+			pr_info("LBM: bpf [%s] added into bpf ingress db for subsys [%d]\n",
+				p->bpf_name, p->bpf->aux->lbm_subsys_idx);
 	}
 	if ((prog->aux->lbm_call_dir == LBM_CALL_DIR_EGRESS) ||
 		(prog->aux->lbm_call_dir == LBM_CALL_DIR_INEGRESS)) {
-		spin_lock_irqsave(&lbm_bpf_egress_lock, flags);
-		hlist_add_tail_rcu(&p->entry, &lbm_bpf_egress_db[prog->aux->lbm_subsys_index]);
-		spin_unlock_irqrestore(&lbm_bpf_egress_lock, flags);
+		spin_lock_irqsave(&lbm_bpf_egress_db_lock, flags);
+		hlist_add_tail_rcu(&p->entry, &lbm_bpf_egress_db[prog->aux->lbm_subsys_idx]);
+		spin_unlock_irqrestore(&lbm_bpf_egress_db_lock, flags);
 		if (lbm_main_debug)
-			pr_info("lbm-main: bpf [%s] added into bpf egress db for subsys [%d]\n",
-				p->bpf_name, p->bpf->aux->lbm_subsys_index);
+			pr_info("LBM: bpf [%s] added into bpf egress db for subsys [%d]\n",
+				p->bpf_name, p->bpf->aux->lbm_subsys_idx);
 	}
 
 	return 0;
 }
 
 
-static inline int check_calldir(int dir)
-{
-	switch (dir) {
-	case LBM_CALL_DIR_INGRESS:
-	case LBM_CALL_DIR_EGRESS:
-	case LBM_CALL_DIR_INEGRESS:
-		return 0;
-	default:
-		return -1;
-	}
-}
 
-static inline int check_subsys(int idx)
-{
-	switch (idx) {
-	case LBM_SUBSYS_INDEX_USB:
-	case LBM_SUBSYS_INDEX_BLUETOOTH:
-	case LBM_SUBSYS_INDEX_NFC:
-		return 0;
-	default:
-		return -1;
-	}
-}
 
 static int find_mod_given_name(char *name)
 {
@@ -339,70 +346,70 @@ int lbm_register_mod(struct lbm_mod *mod)
 	unsigned long flags;
 
 	if (!mod) {
-		pr_error("lbm-main: null mod in %s\n", __func__);
+		pr_err("LBM: null mod in %s\n", __func__);
 		return -1;
 	}
 
 	if (!check_subsys(mod->subsys_index)) {
-		pr_error("lbm-main: invalid subsys index [%d]\n", mod->subsys_index);
+		pr_err("LBM: invalid subsys index [%d]\n", mod->subsys_index);
 		return -1;
 	}
 
 	/* Make sure it is not in the list */
 	if (find_mod_given_name(mod->name)) {
-		pr_error("lbm-main: mod [%s] already exists\n", mod->name);
+		pr_err("LBM: mod [%s] already exists\n", mod->name);
 		return -1;
 	}
 
 	p = kmalloc(sizeof(*p), GFP_KERNEL);
 	if (!p) {
-		pr_error("lbm-main: kmalloc failed for mod_info\n");
+		pr_err("LBM: kmalloc failed for mod_info\n");
 		return -ENOMEM;
 	}
 	p->mod = mod;
 
 	/* Add this mod into DB */
-	spin_lock_irqsave(&lbm_mod_db, flags);
+	spin_lock_irqsave(&lbm_mod_db_lock, flags);
 	hlist_add_tail_rcu(&p->entry, &lbm_mod_db);
 	lbm_mod_num++;
-	spin_unlock_irqrestore(&lbm_mod_db, flags);
+	spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
 	if (lbm_main_debug)
-		pr_info("lbm-main: mod [%s] added into the mod db\n", mod->name);
+		pr_info("LBM: mod [%s] added into the mod db\n", mod->name);
 
 	/* Add into ingree and egree DBs */
 	if (mod->lbm_ingress_hook) {
 		q = kmalloc(sizeof(*q), GFP_KERNEL);
 		if (!q) {
-			pr_error("lbm-main: kmalloc failed for bpf_mod_info on ingress\n");
+			pr_err("LBM: kmalloc failed for bpf_mod_info on ingress\n");
 			return -ENOMEM;
 		}
 		q->bpf = NULL;
 		q->mod = mod;
 		q->lbm_hook = mod->lbm_ingress_hook;
 
-		spin_lock_irqsave(&lbm_mod_ingress_lock, flags);
+		spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
 		hlist_add_tail_rcu(&q->entry, &lbm_mod_ingress_db[mod->subsys_index]);
-		spin_unlock_irqrestore(&lbm_mod_ingress_lock, flags);
+		spin_unlock_irqrestore(&lbm_mod_ingress_db_lock, flags);
 		if (lbm_main_debug)
-			pr_info("lbm-main: mod [%s] added into mod ingress db for subsys [%d]\n",
+			pr_info("LBM: mod [%s] added into mod ingress db for subsys [%d]\n",
 				mod->name, mod->subsys_index);
 	}
 
 	if (mod->lbm_egress_hook) {
 		q = kmalloc(sizeof(*q), GFP_KERNEL);
 		if (!q) {
-			pr_error("lbm-main: kmalloc failed for bpf_mod_info on egress\n");
+			pr_err("LBM: kmalloc failed for bpf_mod_info on egress\n");
 			return -ENOMEM;
 		}
 		q->bpf = NULL;
 		q->mod = mod;
 		q->lbm_hook = mod->lbm_egress_hook;
 
-		spin_lock_irqsave(&lbm_mod_egress_lock, flags);
+		spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
 		hlist_add_tail_rcu(&q->entry, &lbm_mod_egress_db[mod->subsys_index]);
-		spin_unlock_irqrestore(&lbm_mod_egress_lock, flags);
+		spin_unlock_irqrestore(&lbm_mod_egress_db_lock, flags);
 		if (lbm_main_debug)
-			pr_info("lbm-main: mod [%s] added into mod egress db for subsys [%d]\n",
+			pr_info("LBM: mod [%s] added into mod egress db for subsys [%d]\n",
 				mod->name, mod->subsys_index);
 	}
 
@@ -416,23 +423,23 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 	unsigned long flags;
 
 	if (!mod) {
-		pr_error("lbm-main: null mod in %s\n", __func__);
+		pr_err("LBM: null mod in %s\n", __func__);
 		return -1;
 	}
 
 	if (!check_subsys(mod->subsys_index)) {
-		pr_error("lbm-main: invalid subsys index [%d]\n", mod->subsys_index);
+		pr_err("LBM: invalid subsys index [%d]\n", mod->subsys_index);
 		return -1;
 	}
 
 	/* Make sure it is in the list */
 	if (!find_mod_given_name(mod->name)) {
-		pr_error("lbm-main: mod [%s] does not exists\n", mod->name);
+		pr_err("LBM: mod [%s] does not exists\n", mod->name);
 		return -1;
 	}
 
 	/* Remove this mod from DB */
-	spin_lock_irqsave(&lbm_mod_db, flags);
+	spin_lock_irqsave(&lbm_mod_db_lock, flags);
 	hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
 		if (strncasecmp(p->mod->name, mod->name, LBM_MOD_NAME_LEN) == 0) {
 			hlist_del_rcu(&p->entry);
@@ -441,13 +448,13 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&lbm_mod_db, flags);
+	spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
 	if (lbm_main_debug)
-		pr_info("lbm-main: mod [%s] removed from mod db\n", mod->name);
+		pr_info("LBM: mod [%s] removed from mod db\n", mod->name);
 
 	/* Remove this from ingress and egress DBs */
 	if (mod->lbm_ingress_hook) {
-		spin_lock_irqsave(&lbm_mod_ingress_db, flags);
+		spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
 		hlist_for_each_entry_rcu(q, &lbm_mod_ingress_db[mod->subsys_index], entry) {
 			if (strncasecmp(q->mod->name, mod->name, LBM_MOD_NAME_LEN) == 0) {
 				hlist_del_rcu(&q->entry);
@@ -455,14 +462,14 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 				break;
 			}
 		}
-		spin_unlock_irqrestore(&lbm_mod_ingress_db, flags);
+		spin_unlock_irqrestore(&lbm_mod_ingress_db_lock, flags);
 		if (lbm_main_debug)
-			pr_info("lbm-main: mod [%s] removed from mod ingress db for subsys [%d]\n",
+			pr_info("LBM: mod [%s] removed from mod ingress db for subsys [%d]\n",
 				mod->name, mod->subsys_index);
 	}
 
 	if (mod->lbm_egress_hook) {
-		spin_lock_irqsave(&lbm_mod_egress_db, flags);
+		spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
 		hlist_for_each_entry_rcu(q, &lbm_mod_egress_db[mod->subsys_index], entry) {
 			if (strncasecmp(q->mod->name, mod->name, LBM_MOD_NAME_LEN) == 0) {
 				hlist_del_rcu(&q->entry);
@@ -470,9 +477,9 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 				break;
 			}
 		}
-		spin_unlock_irqrestore(&lbm_mod_egress_db, flags);
+		spin_unlock_irqrestore(&lbm_mod_egress_db_lock, flags);
 		if (lbm_main_debug)
-			pr_info("lbm-main: mod [%s] removed from mod egress db for subsys [%d]\n",
+			pr_info("LBM: mod [%s] removed from mod egress db for subsys [%d]\n",
 				mod->name, mod->subsys_index);
 	}
 
@@ -480,14 +487,11 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 }
 
 /* init/exit */
-int lbm_init(void)
+void __init lbm_init(void)
 {
-	pr_info("lbm-main initialized\n");
-	return 0;
+	pr_info("LBM initialized\n");
 }
-EXPORT_SYMBOL_GPL(lbm_init);
 
 void lbm_exit(void)
 {
 }
-EXPORT_SYMBOL_GPL(lbm_exit);

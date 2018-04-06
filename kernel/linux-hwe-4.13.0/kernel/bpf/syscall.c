@@ -1031,8 +1031,9 @@ free_prog_nouncharge:
 /* daveti: bsically a combo of load + pin */
 static int bpf_prog_load_lbm(union bpf_attr *attr)
 {
-	enum bpf_prog_type type = attr->prog_type;
+	enum bpf_prog_type type = attr->lbm.prog_type;
 	struct bpf_prog *prog;
+	union bpf_attr attr2;
 	int err;
 	char license[128];
 	bool is_gpl;
@@ -1040,11 +1041,11 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	if (CHECK_ATTR(BPF_PROG_LOAD))
 		return -EINVAL;
 
-	if (attr->prog_flags & ~BPF_F_STRICT_ALIGNMENT)
+	if (attr->lbm.prog_flags & ~BPF_F_STRICT_ALIGNMENT)
 		return -EINVAL;
 
 	/* copy eBPF program license from user space */
-	if (strncpy_from_user(license, u64_to_user_ptr(attr->license),
+	if (strncpy_from_user(license, u64_to_user_ptr(attr->lbm.license),
 			      sizeof(license) - 1) < 0)
 		return -EFAULT;
 	license[sizeof(license) - 1] = 0;
@@ -1052,16 +1053,16 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	/* eBPF programs must be GPL compatible to use GPL-ed functions */
 	is_gpl = license_is_gpl_compatible(license);
 
-	if (attr->insn_cnt == 0 || attr->insn_cnt > BPF_MAXINSNS)
+	if (attr->lbm.insn_cnt == 0 || attr->lbm.insn_cnt > BPF_MAXINSNS)
 		return -E2BIG;
 
 	if (type != BPF_PROG_TYPE_LBM ||
-	    attr->kern_version != LINUX_VERSION_CODE ||
+	    attr->lbm.kern_version != LINUX_VERSION_CODE ||
 	    !capable(CAP_SYS_ADMIN))
 		return -EINVAL;
 
 	/* plain bpf_prog allocation */
-	prog = bpf_prog_alloc(bpf_prog_size(attr->insn_cnt), GFP_USER);
+	prog = bpf_prog_alloc(bpf_prog_size(attr->lbm.insn_cnt), GFP_USER);
 	if (!prog)
 		return -ENOMEM;
 
@@ -1069,10 +1070,10 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	if (err)
 		goto free_prog_nouncharge;
 
-	prog->len = attr->insn_cnt;
+	prog->len = attr->lbm.insn_cnt;
 
 	err = -EFAULT;
-	if (copy_from_user(prog->insns, u64_to_user_ptr(attr->insns),
+	if (copy_from_user(prog->insns, u64_to_user_ptr(attr->lbm.insns),
 			   bpf_prog_insn_size(prog)) != 0)
 		goto free_prog;
 
@@ -1083,12 +1084,19 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	prog->gpl_compatible = is_gpl ? 1 : 0;
 
 	/* daveti: LBM needs to redirect the verifier ops to be susbsys-specific */
-	err = lbm_find_prog_sub_type(prog, attr->lbm_subsys_idx, attr->lbm_call_dir);
+	err = lbm_find_prog_sub_type(prog, attr->lbm.subsys_idx, attr->lbm.call_dir);
 	if (err < 0)
 		goto free_prog;
 
+	/* daveti: HACK - map attr.lbm back to attr for bpf_check */ 
+	memset(&attr2, 0x0, sizeof(attr2));
+	attr2.log_level = attr->lbm.log_level;
+	attr2.log_buf = attr->lbm.log_buf;
+	attr2.log_size = attr->lbm.log_size;
+	attr2.prog_flags = attr->lbm.prog_flags;
+
 	/* run eBPF verifier */
-	err = bpf_check(&prog, attr);
+	err = bpf_check(&prog, &attr2);
 	if (err < 0)
 		goto free_used_maps;
 
@@ -1114,9 +1122,9 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	}
 
 	/* daveti: pin the program by default */
-	err = bpf_obj_pin_user(err, u64_to_user_ptr(attr->pathname));
+	err = bpf_obj_pin_user(err, u64_to_user_ptr(attr->lbm.pathname));
 	if (err < 0) {
-		pr_error("lbm-bpf-syscall-error: bpf_obj_pin_user failed with errno [%d]\n", err);
+		pr_err("lbm-bpf-syscall-error: bpf_obj_pin_user failed with errno [%d]\n", err);
 		goto free_used_maps;
 	}
 
@@ -1124,9 +1132,9 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	trace_bpf_prog_load(prog, err);
 
 	/* daveti: save the bpf prog into lbm */
-	err = lbm_load_bpf_prog(prog, u64_to_user_ptr(attr->lbm_bpf_name));
+	err = lbm_load_bpf_prog(prog, u64_to_user_ptr(attr->lbm.bpf_name));
 	if (err < 0) {
-		pr_error("lbm-bpf-syscall-error: lbm_load_bpf_prog failed with errno [%d]\n", err);
+		pr_err("lbm-bpf-syscall-error: lbm_load_bpf_prog failed with errno [%d]\n", err);
 		goto free_used_maps;
 	}
 

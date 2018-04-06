@@ -8,7 +8,7 @@
 #include <linux/string.h>
 #include <linux/bpf.h>
 #include <linux/filter.h>
-#include <uapi/include/lbm_bpf.h>
+#include <uapi/linux/lbm_bpf.h>
 
 /* BPF helpers */
 
@@ -62,7 +62,7 @@ int lbm_nfc_prologue(struct bpf_insn *insn_buf, bool direct_write,
 	return 0;
 }
 
-int lbm_test_run_skb(struct bpf_prog *prog, const union bpf_attr *kattr,
+int lbm_nfc_test_run_skb(struct bpf_prog *prog, const union bpf_attr *kattr,
 				union bpf_attr __user *uattr)
 {
 	return 0;

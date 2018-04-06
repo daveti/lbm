@@ -194,10 +194,13 @@ static const char * const reg_type_str[] = {
 };
 
 #define __BPF_FUNC_STR_FN(x) [BPF_FUNC_ ## x] = __stringify(bpf_ ## x)
+#define __LBM_FUNC_STR_FN(x) [BPF_FUNC_ ## x] = __stringify(x)	/* daveti: for lbm */
 static const char * const func_id_str[] = {
 	__BPF_FUNC_MAPPER(__BPF_FUNC_STR_FN)
+	__LBM_BPF_FUNC_MAPPER(__LBM_FUNC_STR_FN) 	/* daveti: for lbm */
 };
 #undef __BPF_FUNC_STR_FN
+#undef __LBM_FUNC_STR_FN	/* daveti: for lbm */
 
 static const char *func_id_name(int id)
 {

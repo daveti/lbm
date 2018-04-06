@@ -88,7 +88,7 @@ enum bpf_cmd {
 	BPF_PROG_GET_FD_BY_ID,
 	BPF_MAP_GET_FD_BY_ID,
 	BPF_OBJ_GET_INFO_BY_FD,
-	BPF_RROG_LOAD_LBM,	/* daveti: for lbm */
+	BPF_PROG_LOAD_LBM,	/* daveti: for lbm */
 };
 
 enum bpf_map_type {
@@ -246,11 +246,11 @@ union bpf_attr {
 		__aligned_u64	log_buf;	/* user supplied buffer */
 		__u32		kern_version;	/* checked when prog_type=kprobe */
 		__u32		prog_flags;
-		__u32		lbm_subsys_idx;	/* daveti: index of certain IO subsys */
-		__u32		lbm_call_dir;	/* daveti: lbm call direction - ingress/outgress/etc. */
+		__u32		subsys_idx;	/* daveti: index of certain IO subsys */
+		__u32		call_dir;	/* daveti: lbm call direction - ingress/outgress/etc. */
 		__aligned_u64	pathname;	/* daveti: lbm pin automatically */
-		__aligned_u64	lbm_bpf_name;	/* daveti: used by lbm sysfs */
-	};
+		__aligned_u64	bpf_name;	/* daveti: used by lbm sysfs */
+	} lbm;
 } __attribute__((aligned(8)));
 
 /* BPF helper function descriptions:

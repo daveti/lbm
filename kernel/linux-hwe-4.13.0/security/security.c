@@ -31,6 +31,7 @@
 #include <linux/prctl.h>
 #include <net/flow.h>
 #include <net/sock.h>
+#include <linux/lbm.h>		/* daveti: for lbm */
 
 #define MAX_LSM_EVM_XATTR	2
 
@@ -100,6 +101,12 @@ int __init security_init(void)
 	capability_add_hooks();
 	yama_add_hooks();
 	loadpin_add_hooks();
+
+#ifdef CONFIG_LBM
+	/* daveti: init lbm here */
+	lbm_init();
+#endif
+
 
 	/*
 	 * The first call to a module specific init function
