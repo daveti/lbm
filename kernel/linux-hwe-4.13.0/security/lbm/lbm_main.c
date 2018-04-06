@@ -10,6 +10,12 @@
  *
  */
 #include <linux/module.h>
+#include <linux/fcntl.h>
+#include <linux/slab.h>
+#include <linux/seq_file.h>
+#include <linux/rcupdate.h>
+#include <linux/parser.h>
+#include <linux/vmalloc.h>
 #include <linux/types.h>
 #include <linux/bpf.h>
 #include <linux/filter.h>
@@ -37,6 +43,8 @@ static DEFINE_SPINLOCK(lbm_bpf_egress_db_lock);
 static DEFINE_SPINLOCK(lbm_mod_ingress_db_lock);
 static DEFINE_SPINLOCK(lbm_mod_egress_db_lock);
 static DEFINE_SPINLOCK(lbm_mod_db_lock);
+static DEFINE_SPINLOCK(lbm_usb_ingress_stats_lock);	/* can be called in the IRQ ctx */
+static DEFINE_SPINLOCK(lbm_usb_egress_stats_lock);
 
 struct lbm_bpf_mod_info {
 	struct hlist_node entry;
@@ -55,6 +63,27 @@ struct lbm_mod_info {
 
 static int lbm_mod_num;
 static int lbm_main_debug = 1;
+static int lbm_bpf_debug;
+static int lbm_usb_debug = 1;
+static int lbm_bluetooth_debug;
+static int lbm_nfc_debug;
+static int lbm_usb_stats;
+
+/* BPF map should be working so we literally do not need these */
+static unsigned long long lbm_usb_pkt_sent;
+static unsigned long long lbm_usb_pkt_sent_filtered;
+static unsigned long long lbm_usb_pkt_recv;
+static unsigned long long lbm_usb_pkt_recv_filtered;
+
+static struct dentry *lbm_sysfs_dir;
+static struct dentry *lbm_sysfs_debug;
+static struct dentry *lbm_sysfs_stats;
+static struct dentry *lbm_sysfs_mod;
+static struct dentry *lbm_sysfs_bpf_ingress;
+static struct dentry *lbm_sysfs_bpf_egress;
+static struct dentry *lbm_sysfs_mod_ingress;
+static struct dentry *lbm_sysfs_mod_egress;
+
 
 
 /* BPF verifier operations per subsys */
@@ -486,10 +515,80 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 	return 0;
 }
 
+
+
+/* sysfs */
+static const struct file_operations lbm_sysfs_debug_ops;
+static const struct file_operations lbm_sysfs_stats_ops;
+static const struct file_operations lbm_sysfs_mod_ops;
+static const struct file_operations lbm_sysfs_bpf_ingress_ops;
+static const struct file_operations lbm_sysfs_bpf_egress_ops;
+static const struct file_operations lbm_sysfs_mod_ingress_ops;
+static const struct file_operations lbm_sysfs_mod_egress_ops;
+
+int lbm_init_sysfs(void)
+{
+	lbm_sysfs_dir = securityfs_create_dir("lbm", NULL);
+	if (IS_ERR(lbm_sysfs_dir))
+		return -1;
+
+	lbm_sysfs_debug = securityfs_create_file("debug", 0666, lbm_sysfs_dir,
+				NULL, &lbm_sysfs_debug_ops);
+	if (IS_ERR(lbm_sysfs_debug))
+		goto init_sysfs_failed;
+
+	lbm_sysfs_stats = securityfs_create_file("stats", 0444, lbm_sysfs_dir,
+				NULL, &lbm_sysfs_stats_ops);
+	if (IS_ERR(lbm_sysfs_stats))
+		goto init_sysfs_failed;
+
+	lbm_sysfs_mod = securityfs_create_file("modules", 0666, lbm_sysfs_dir,
+				NULL, &lbm_sysfs_mod_ops);
+	if (IS_ERR(lbm_sysfs_mod))
+		goto init_sysfs_failed;
+
+	lbm_sysfs_bpf_ingress = securityfs_create_file("bpf_ingress", 0666, lbm_sysfs_dir,
+				NULL, &lbm_sysfs_bpf_ingress_ops);
+	if (IS_ERR(lbm_sysfs_bpf_ingress))
+		goto init_sysfs_failed;
+
+	lbm_sysfs_bpf_egress = securityfs_create_file("bpf_egress", 0666, lbm_sysfs_dir,
+				NULL, &lbm_sysfs_bpf_egress_ops);
+	if (IS_ERR(lbm_sysfs_bpf_egress))
+		goto init_sysfs_failed;
+
+	lbm_sysfs_mod_ingress = securityfs_create_file("mod_ingress", 0666, lbm_sysfs_dir,
+				NULL, &lbm_sysfs_mod_ingress_ops);
+	if (IS_ERR(lbm_sysfs_mod_ingress))
+		goto init_sysfs_failed;
+
+	lbm_sysfs_mod_egress = securityfs_create_file("mod_egress", 0666, lbm_sysfs_dir,
+				NULL, &lbm_sysfs_mod_egress_ops);
+	if (IS_ERR(lbm_sysfs_mod_egress))
+		goto init_sysfs_failed;
+
+	return 0;
+
+init_sysfs_failed:
+	securityfs_remove(lbm_sysfs_debug);
+	securityfs_remove(lbm_sysfs_stats);
+	securityfs_remove(lbm_sysfs_mod);
+	securityfs_remove(lbm_sysfs_bpf_ingress);
+	securityfs_remove(lbm_sysfs_bpf_egress);
+	securityfs_remove(lbm_sysfs_mod_ingress);
+	securityfs_remove(lbm_sysfs_mod_egress);
+	securityfs_remove(lbm_sysfs_dir);
+	return -1;
+}
+
+
 /* init/exit */
 void __init lbm_init(void)
 {
-	pr_info("LBM initialized\n");
+	if (lbm_init_sysfs())
+		pr_err("LBM initialization failed\n");
+	else
+		pr_info("LBM initialized\n");
 }
 
 void lbm_exit(void)
