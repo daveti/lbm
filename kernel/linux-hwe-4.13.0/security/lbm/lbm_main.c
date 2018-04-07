@@ -506,6 +506,11 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 	struct lbm_bpf_mod_info *q;
 	unsigned long flags;
 
+	if (!lbm_enable) {
+		pr_err("LBM: %s failed when LBM disabled\n", __func__);
+		return -1;
+	}
+
 	if (!mod) {
 		pr_err("LBM: null mod in %s\n", __func__);
 		return -1;
@@ -573,6 +578,22 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 
 
 /* sysfs */
+static inline int update_debug_value(char *val, int *debug)
+{
+	int rv, value;
+
+	rv = kstrtoint(val, 0, &value);
+	if (rv < 0)
+		return rv;
+
+	if (value == 0) || (value == 1) {
+		*debug = value;
+		return 0;
+	}
+
+	return -1;
+}
+
 static ssize_t lbm_sysfs_debug_read(struct file *filp,
 					char __user *buf,
 					size_t count, loff_t *ppos)
@@ -588,6 +609,51 @@ static ssize_t lbm_sysfs_debug_read(struct file *filp,
 			lbm_bluetooth_debug,
 			lbm_nfc_debug);
 	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static ssize_t lbm_sysfs_debug_write(struct file *file, const char __user *buf,
+					size_t datalen, loff_t *ppos)
+{
+	char *data;
+	char *p;
+	ssize_t res;
+
+	if (datalen >= PAGE_SIZE)
+		datalen = PAGE_SIZE - 1;
+
+	/* No partial writes. */
+	res = -EINVAL;
+	if (*ppos != 0)
+		goto debug_write_out;
+
+	data = memdup_user_nul(buf, datalen);
+	if (IS_ERR(data)) {
+		res = PTR_ERR(data);
+		goto debug_write_out;
+	}
+
+	/* Write follows the same syntax of read output */
+	while ((p = strsep(&data, ",")) != NULL) {
+		if (strncmp(p, "main:", 5) == 0)
+			res = update_debug_value(p+5, &lbm_main_debug);
+		else if (strncmp(p, "bpf:", 4) == 0)
+			res = update_debug_vlue(p+4, &lbm_bpf_debug);
+		else if (strncmp(p, "usb:", 4) == 0)
+			res = update_debug_value(p+4, &lbm_usb_debug);
+		else if (strmcp(p, "bluetooth:", 10) == 0)
+			res = update_debug_value(p+10, &lbm_bluetooth_debug);
+		else if (strcmp(p, "nfc:", 4) == 0)
+			res = update_debug_value(p+4, &lbm_nfc_debug);
+		else {
+			pr_err("LBM: %s - unsupported debug option [%s]\n",
+				__func__, p);
+			res = -EINVAL;
+			break;
+		}
+	}
+
+debug_write_out:
+	return result;
 }
 
 static const struct file_operations lbm_sysfs_debug_ops = {
@@ -606,6 +672,9 @@ static const struct file_operations lbm_sysfs_mod_egress_ops;
 
 int lbm_init_sysfs(void)
 {
+	if (lbm_main_debug)
+		pr_info("LBM: into %s\n", __func__);
+	
 	lbm_sysfs_dir = securityfs_create_dir("lbm", NULL);
 	if (IS_ERR(lbm_sysfs_dir))
 		return -1;
