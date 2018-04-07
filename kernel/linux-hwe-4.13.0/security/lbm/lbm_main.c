@@ -31,6 +31,11 @@
 #define LBM_MOD_ACT_ADD			0
 #define LBM_MOD_ACT_DEL			1
 #define LBM_TMP_BUF_LEN			128
+#define LBM_STAT_TX_CNT			0
+#define LBM_STAT_TX_CNT_FILTERED	1
+#define LBM_STAT_RX_CNT			2
+#define LBM_STAT_RX_CNT_FILTERED	3
+#define LBM_STAT_NUM_MAX		4
 
 /* Global vars */
 static struct hlist_head lbm_bpf_ingress_db[LBM_SUB_SYS_NUM_MAX];
@@ -61,19 +66,19 @@ struct lbm_mod_info {
 };
 
 static int lbm_mod_num;
-static atomic_t lbm_main_debug = ATOMIC_INIT(1);
-static atomic_t lbm_bpf_debug = ATOMIC_INIT(1);
-static atomic_t lbm_usb_debug = ATOMIC_INIT(1);
-static atomic_t lbm_bluetooth_debug = ATOMIC_INIT(0);
-static atomic_t lbm_nfc_debug = ATOMIC_INIT(0);
+static int lbm_enable;
+static int lbm_main_debug = 1;
+static int lbm_bpf_debug = 1;
+static int lbm_usb_debug = 1;
+static int lbm_bluetooth_debug = 1;
+static int lbm_nfc_debug = 1;
+static int lbm_stats_enable;
 
 /* BPF map should be working so we literally do not need these */
-static atomic_long_t lbm_usb_pkt_sent = ATOMIC_LONG_INIT(0);
-static atomic_long_t lbm_usb_pkt_sent_filtered = ATOMIC_LONG_INIT(0);
-static atomic_long_t lbm_usb_pkt_recv = ATOMIC_LONG_INIT(0);
-static atomic_long_t lbm_usb_pkt_recv_filtered = ATOMIC_LONG_INIT(0);
+static unsigned long lbm_stats_db[LBM_SUB_SYS_NUM_MAX][LBM_STAT_NUM_MAX];
 
 static struct dentry *lbm_sysfs_dir;
+static struct dentry *lbm_sysfs_enable;
 static struct dentry *lbm_sysfs_debug;
 static struct dentry *lbm_sysfs_stats;
 static struct dentry *lbm_sysfs_mod;
@@ -81,7 +86,6 @@ static struct dentry *lbm_sysfs_bpf_ingress;
 static struct dentry *lbm_sysfs_bpf_egress;
 static struct dentry *lbm_sysfs_mod_ingress;
 static struct dentry *lbm_sysfs_mod_egress;
-
 
 
 /* BPF verifier operations per subsys */
@@ -137,12 +141,40 @@ static inline int check_subsys(int idx)
 	}
 }
 
+inline int lbm_is_enabled(void)
+{
+	return lbm_enable;
+}
+
+inline int lbm_is_bpf_debug_enabled(void)
+{
+	return lbm_bpf_debug;
+}
+
+inline int lbm_is_usb_debug_enabled(void)
+{
+	return lbm_usb_debug;
+}
+
+inline int lbm_is_bluetooth_debug_enabled(void)
+{
+	return lbm_bluetooth_debug;
+}
+
+inline int lbm_is_nfc_debug_enabled(void)
+{
+	return lbm_nfc_debug;
+}
+
 
 /* Essential filter function used by different subsys */
 int lbm_filter_pkt(int subsys, int dir, void *pkt)
 {
 	struct lbm_bpf_mod_info *p;
 	int res;
+
+	if (!lbm_enable)
+		return LBM_RES_ALLOW;
 
 	/* Defensive checking */
 	if (!pkt) {
@@ -163,8 +195,10 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 	 * TODO: expose policy to the user space to speed up here.
 	 */
 	res = LBM_RES_ALLOW;
-	if ((dir == LBM_CALL_DIR_INGRESS) ||
-		(dir == LBM_CALL_DIR_INEGRESS)) {
+	if (dir == LBM_CALL_DIR_INGRESS) {
+		if (lbm_stats_enable)
+			lbm_stats_db[subsys][LBM_STAT_RX_CNT]++;
+
 		/* BPF */
 		rcu_read_lock();
 		hlist_for_each_entry_rcu(p, &lbm_bpf_ingress_db[subsys], entry) {
@@ -186,9 +220,10 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 		rcu_read_unlock();
 		if (res == LBM_RES_DROP)
 			goto filter_pkt_early_ret;
-	}
-	if ((dir == LBM_CALL_DIR_EGRESS) ||
-		(dir == LBM_CALL_DIR_INEGRESS)) {
+	} else if (dir == LBM_CALL_DIR_EGRESS) {
+		if (lbm_stats_enable)
+			lbm_stats_db[subsys][LBM_STAT_TX_CNT]++;
+
 		/* BPF */
 		rcu_read_lock();
 		hlist_for_each_entry_rcu(p, &lbm_bpf_egress_db[subsys], entry) {
@@ -208,9 +243,21 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 				break;
 		}
 		rcu_read_unlock();
+	} else {
+		pr_err("LBM: %s - bad dir [%d]\n", __func__, dir);
+		return -1;
 	}
 
 filter_pkt_early_ret:
+	if (lbm_stats_enable && (res == LBM_RES_DROP)) {
+		if (dir == LBM_CALL_DIR_INGRESS)
+			lbm_stats_db[subsys][LBM_STAT_RX_CNT_FILTERED]++;
+		else
+			lbm_stats_db[subsys][LBM_STAT_TX_CNT_FILTERED]++;
+	}
+	if (lbm_main_debug)
+		pr_info("LBM: %s - subsys [%d], dir [%d], pkt [%p], res [%d]\n",
+			subsys, dir, pkt, res);
 	return res;
 }
 
@@ -279,6 +326,11 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 	char tmp_name[LBM_BPF_NAME_LEN];
 	unsigned long flags;
 	int len;
+
+	if (!lbm_enable) {
+		pr_err("LBM: %s failed when LBM disabled\n", __func__);
+		return -1;
+	}
 
 	/* Check subsys */
 	if (check_subsys(prog->aux->lbm_subsys_idx)) {
@@ -371,6 +423,11 @@ int lbm_register_mod(struct lbm_mod *mod)
 	struct lbm_mod_info *p;
 	struct lbm_bpf_mod_info *q;
 	unsigned long flags;
+
+	if (!lbm_enable) {
+		pr_err("LBM: %s failed when LBM disabled\n", __func__);
+		return -1;
+	}
 
 	if (!mod) {
 		pr_err("LBM: null mod in %s\n", __func__);
@@ -523,13 +580,13 @@ static ssize_t lbm_sysfs_debug_read(struct file *filp,
 	char tmp_buf[LBM_TMP_BUF_LEN];
 	ssize_t len;
 
-	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "main:%d\nbpf:%d\nusb:%d\n%"
-			"bluetooth:%d\nnfc:%d\n",
-			atomic_read(&lbm_main_debug),
-			atomic_read(&lbm_bpf_debug),
-			atomic_read(&lbm_usb_debug),
-			atomic_read(&lbm_bluetooth_debug),
-			atomic_read(&lbm_nfc_debug));
+	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "main:%d,bpf:%d,usb:%d,"
+			"bluetooth:%d,nfc:%d\n",
+			lbm_main_debug,
+			lbm_bpf_debug,
+			lbm_usb_debug,
+			lbm_bluetooth_debug,
+			lbm_nfc_debug);
 	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
 }
 
@@ -538,6 +595,8 @@ static const struct file_operations lbm_sysfs_debug_ops = {
 	.write = lbm_sysfs_debug_write,
 	.llseek = generic_file_llseek,
 };
+
+static const struct file_operations lbm_sysfs_enable_ops;
 static const struct file_operations lbm_sysfs_stats_ops;
 static const struct file_operations lbm_sysfs_mod_ops;
 static const struct file_operations lbm_sysfs_bpf_ingress_ops;
@@ -551,7 +610,12 @@ int lbm_init_sysfs(void)
 	if (IS_ERR(lbm_sysfs_dir))
 		return -1;
 
-	lbm_sysfs_debug = securityfs_create_file("debug", 0666, lbm_sysfs_dir,
+	lbm_sysfs_debug = securityfs_create_file("enable", 0600, lbm_sysfs_dir,
+				NULL, &lbm_sysfs_enable_ops);
+	if (IS_ERR(lbm_sysfs_enable))
+		goto init_sysfs_failed;
+
+	lbm_sysfs_debug = securityfs_create_file("debug", 0600, lbm_sysfs_dir,
 				NULL, &lbm_sysfs_debug_ops);
 	if (IS_ERR(lbm_sysfs_debug))
 		goto init_sysfs_failed;
@@ -561,27 +625,27 @@ int lbm_init_sysfs(void)
 	if (IS_ERR(lbm_sysfs_stats))
 		goto init_sysfs_failed;
 
-	lbm_sysfs_mod = securityfs_create_file("modules", 0666, lbm_sysfs_dir,
+	lbm_sysfs_mod = securityfs_create_file("modules", 0600, lbm_sysfs_dir,
 				NULL, &lbm_sysfs_mod_ops);
 	if (IS_ERR(lbm_sysfs_mod))
 		goto init_sysfs_failed;
 
-	lbm_sysfs_bpf_ingress = securityfs_create_file("bpf_ingress", 0666, lbm_sysfs_dir,
+	lbm_sysfs_bpf_ingress = securityfs_create_file("bpf_ingress", 0600, lbm_sysfs_dir,
 				NULL, &lbm_sysfs_bpf_ingress_ops);
 	if (IS_ERR(lbm_sysfs_bpf_ingress))
 		goto init_sysfs_failed;
 
-	lbm_sysfs_bpf_egress = securityfs_create_file("bpf_egress", 0666, lbm_sysfs_dir,
+	lbm_sysfs_bpf_egress = securityfs_create_file("bpf_egress", 0600, lbm_sysfs_dir,
 				NULL, &lbm_sysfs_bpf_egress_ops);
 	if (IS_ERR(lbm_sysfs_bpf_egress))
 		goto init_sysfs_failed;
 
-	lbm_sysfs_mod_ingress = securityfs_create_file("mod_ingress", 0666, lbm_sysfs_dir,
+	lbm_sysfs_mod_ingress = securityfs_create_file("mod_ingress", 0600, lbm_sysfs_dir,
 				NULL, &lbm_sysfs_mod_ingress_ops);
 	if (IS_ERR(lbm_sysfs_mod_ingress))
 		goto init_sysfs_failed;
 
-	lbm_sysfs_mod_egress = securityfs_create_file("mod_egress", 0666, lbm_sysfs_dir,
+	lbm_sysfs_mod_egress = securityfs_create_file("mod_egress", 0600, lbm_sysfs_dir,
 				NULL, &lbm_sysfs_mod_egress_ops);
 	if (IS_ERR(lbm_sysfs_mod_egress))
 		goto init_sysfs_failed;
@@ -589,6 +653,7 @@ int lbm_init_sysfs(void)
 	return 0;
 
 init_sysfs_failed:
+	securityfs_remove(lbm_sysfs_enable);
 	securityfs_remove(lbm_sysfs_debug);
 	securityfs_remove(lbm_sysfs_stats);
 	securityfs_remove(lbm_sysfs_mod);

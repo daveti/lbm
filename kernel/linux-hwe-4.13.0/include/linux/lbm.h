@@ -28,6 +28,12 @@ struct lbm_mod{
 	int (*lbm_egress_hook)(void *pkt);
 };
 
+int lbm_is_enabled(void);
+int lbm_is_bpf_debug_enabled(void);
+int lbm_is_usb_debug_enabled(void);
+int lbm_is_bluetooth_debug_enabled(void);
+int lbm_is_nfc_debug_enabled(void);
+
 int lbm_filter_pkt(int subsys, int dir, void *pkt);
 
 int lbm_find_prog_sub_type(struct bpf_prog *prog, int subsys, int dir);
