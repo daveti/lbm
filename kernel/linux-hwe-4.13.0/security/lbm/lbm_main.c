@@ -76,11 +76,13 @@ static int lbm_stats_enable;
 
 /* BPF map should be working so we literally do not need these */
 static unsigned long lbm_stats_db[LBM_SUB_SYS_NUM_MAX][LBM_STAT_NUM_MAX];
+static int lbm_perf[LBM_SUB_SYS_NUM_MAX][2];	/* tx: 0, rx: 1 */
 
 static struct dentry *lbm_sysfs_dir;
 static struct dentry *lbm_sysfs_enable;
 static struct dentry *lbm_sysfs_debug;
 static struct dentry *lbm_sysfs_stats;
+static struct dentry *lbm_sysfs_perf;
 static struct dentry *lbm_sysfs_mod;
 static struct dentry *lbm_sysfs_bpf_ingress;
 static struct dentry *lbm_sysfs_bpf_egress;
@@ -690,7 +692,111 @@ static ssize_t lbm_sysfs_enable_write(struct file *file, const char __user *buf,
 
 	return update_boolean_value(data, &lbm_enable);
 
-debug_write_out:
+enable_write_out:
+	return result;
+}
+
+static ssize_t lbm_sysfs_stats_read(struct file *filp,
+					char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char tmp_buf[LBM_TMP_BUF_LEN];
+	ssize_t len;
+
+	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "enabled: %d\n"
+			"usb: %lu %lu %lu %lu\n"
+			"bluetooth: %lu %lu %lu %lu\n"
+			"nfc: %lu %lu %lu %lu\n",
+			lbm_stats_enable,
+			lbm_stats_db[LBM_SUBSYS_INDEX_USB][LBM_STAT_TX_CNT],
+			lbm_stats_db[LBM_SUBSYS_INDEX_USB][LBM_STAT_TX_CNT_FILTERED],
+			lbm_stats_db[LBM_SUBSYS_INDEX_USB][LBM_STAT_RX_CNT],
+			lbm_stats_db[LBM_SUBSYS_INDEX_USB][LBM_STAT_RX_CNT_FILTERED],
+			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_STAT_TX_CNT],
+			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_STAT_TX_CNT_FILTERED],
+			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_STAT_RX_CNT],
+			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_STAT_RX_CNT_FILTERED],
+			lbm_stats_db[LBM_SUBSYS_INDEX_NFC][LBM_STAT_TX_CNT],
+			lbm_stats_db[LBM_SUBSYS_INDEX_NFC][LBM_STAT_TX_CNT_FILTERED],
+			lbm_stats_db[LBM_SUBSYS_INDEX_NFC][LBM_STAT_RX_CNT],
+			lbm_stats_db[LBM_SUBSYS_INDEX_NFC][LBM_STAT_RX_CNT_FILTERED]);
+	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static ssize_t lbm_sysfs_stats_write(struct file *file, const char __user *buf,
+					size_t datalen, loff_t *ppos)
+{
+	char *data;
+	char *p;
+	ssize_t res;
+
+	if (datalen >= PAGE_SIZE)
+		datalen = PAGE_SIZE - 1;
+
+	/* No partial writes. */
+	res = -EINVAL;
+	if (*ppos != 0)
+		goto stats_write_out;
+
+	data = memdup_user_nul(buf, datalen);
+	if (IS_ERR(data)) {
+		res = PTR_ERR(data);
+		goto stats_write_out;
+	}
+
+	res = update_boolean_value(data, &lbm_stats_enable);
+	if ((!res) && (lbm_stats_enable))
+		/* Have a fresh start */
+		memset(lbm_stats_db, 0x0, sizeof(lbm_stats_db));
+
+stats_write_out:
+	return result;
+}
+
+static ssize_t lbm_sysfs_mod_read(struct file *filp,
+					char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char tmp_buf[LBM_TMP_BUF_LEN];
+	struct lbm_mod_info *p;
+	ssize_t len = 0;
+
+	rcu_read_lock();
+	hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
+		/* FIXME */
+		len += scnprintf(tmp_buf+len+1, LBM_TMP_BUF_LEN-len-1, "%s\n",
+			p->mod->name);
+	}
+	rcu_read_unlock();
+	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
+					size_t datalen, loff_t *ppos)
+{
+	char *data;
+	char *p;
+	ssize_t res;
+
+	if (datalen >= PAGE_SIZE)
+		datalen = PAGE_SIZE - 1;
+
+	/* No partial writes. */
+	res = -EINVAL;
+	if (*ppos != 0)
+		goto mod_write_out;
+
+	data = memdup_user_nul(buf, datalen);
+	if (IS_ERR(data)) {
+		res = PTR_ERR(data);
+		goto mod_write_out;
+	}
+
+	/* Only allow rm */
+
+	/* Also need to check ingress/egress mod db */
+
+mod_write_out:
 	return result;
 }
 
@@ -707,8 +813,25 @@ static const struct file_operations lbm_sysfs_enable_ops = {
 	.write = lbm_sysfs_enable_write,
 	.llseek = generic_file_llseek,
 };
-static const struct file_operations lbm_sysfs_stats_ops;
-static const struct file_operations lbm_sysfs_mod_ops;
+
+static const struct file_operations lbm_sysfs_stats_ops = {
+	.read = lbm_sysfs_stats_read,
+	.write = lbm_sysfs_stats_write,
+	.llseek = generic_file_llseek,
+};
+
+static const struct file_operations lbm_sysfs_perf_ops = {
+	.read = lbm_sysfs_perf_read,
+	.write = lbm_sysfs_perf_write,
+	.llseek = generic_file_llseek,
+};
+
+static const struct file_operations lbm_sysfs_mod_ops = {
+	.read = lbm_sysfs_mod_read,
+	.write = lbm_sysfs_mod_write,
+	.llseek = generic_file_llseek,
+};
+
 static const struct file_operations lbm_sysfs_bpf_ingress_ops;
 static const struct file_operations lbm_sysfs_bpf_egress_ops;
 static const struct file_operations lbm_sysfs_mod_ingress_ops;
@@ -733,9 +856,14 @@ int lbm_init_sysfs(void)
 	if (IS_ERR(lbm_sysfs_debug))
 		goto init_sysfs_failed;
 
-	lbm_sysfs_stats = securityfs_create_file("stats", 0444, lbm_sysfs_dir,
+	lbm_sysfs_stats = securityfs_create_file("stats", 0600, lbm_sysfs_dir,
 				NULL, &lbm_sysfs_stats_ops);
 	if (IS_ERR(lbm_sysfs_stats))
+		goto init_sysfs_failed;
+
+	lbm_sysfs_stats = securityfs_create_file("perf", 0600, lbm_sysfs_dir,
+				NULL, &lbm_sysfs_perf_ops);
+	if (IS_ERR(lbm_sysfs_perf))
 		goto init_sysfs_failed;
 
 	lbm_sysfs_mod = securityfs_create_file("modules", 0600, lbm_sysfs_dir,
@@ -769,6 +897,7 @@ init_sysfs_failed:
 	securityfs_remove(lbm_sysfs_enable);
 	securityfs_remove(lbm_sysfs_debug);
 	securityfs_remove(lbm_sysfs_stats);
+	securityfs_remove(lbm_sysfs_perf);
 	securityfs_remove(lbm_sysfs_mod);
 	securityfs_remove(lbm_sysfs_bpf_ingress);
 	securityfs_remove(lbm_sysfs_bpf_egress);
