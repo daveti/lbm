@@ -578,7 +578,7 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 
 
 /* sysfs */
-static inline int update_debug_value(char *val, int *debug)
+static inline int update_boolean_value(char *val, int *target)
 {
 	int rv, value;
 
@@ -587,7 +587,7 @@ static inline int update_debug_value(char *val, int *debug)
 		return rv;
 
 	if (value == 0) || (value == 1) {
-		*debug = value;
+		*target = value;
 		return 0;
 	}
 
@@ -635,15 +635,15 @@ static ssize_t lbm_sysfs_debug_write(struct file *file, const char __user *buf,
 	/* Write follows the same syntax of read output */
 	while ((p = strsep(&data, ",")) != NULL) {
 		if (strncmp(p, "main:", 5) == 0)
-			res = update_debug_value(p+5, &lbm_main_debug);
+			res = update_boolean_value(p+5, &lbm_main_debug);
 		else if (strncmp(p, "bpf:", 4) == 0)
 			res = update_debug_vlue(p+4, &lbm_bpf_debug);
 		else if (strncmp(p, "usb:", 4) == 0)
-			res = update_debug_value(p+4, &lbm_usb_debug);
+			res = update_boolean_value(p+4, &lbm_usb_debug);
 		else if (strmcp(p, "bluetooth:", 10) == 0)
-			res = update_debug_value(p+10, &lbm_bluetooth_debug);
+			res = update_boolean_value(p+10, &lbm_bluetooth_debug);
 		else if (strcmp(p, "nfc:", 4) == 0)
-			res = update_debug_value(p+4, &lbm_nfc_debug);
+			res = update_boolean_value(p+4, &lbm_nfc_debug);
 		else {
 			pr_err("LBM: %s - unsupported debug option [%s]\n",
 				__func__, p);
@@ -656,13 +656,57 @@ debug_write_out:
 	return result;
 }
 
+static ssize_t lbm_sysfs_enable_read(struct file *filp,
+					char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char tmp_buf[LBM_TMP_BUF_LEN];
+	ssize_t len;
+
+	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "%d\n", lbm_enable);
+	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static ssize_t lbm_sysfs_enable_write(struct file *file, const char __user *buf,
+					size_t datalen, loff_t *ppos)
+{
+	char *data;
+	char *p;
+	ssize_t res;
+
+	if (datalen >= PAGE_SIZE)
+		datalen = PAGE_SIZE - 1;
+
+	/* No partial writes. */
+	res = -EINVAL;
+	if (*ppos != 0)
+		goto enable_write_out;
+
+	data = memdup_user_nul(buf, datalen);
+	if (IS_ERR(data)) {
+		res = PTR_ERR(data);
+		goto enable_write_out;
+	}
+
+	return update_boolean_value(data, &lbm_enable);
+
+debug_write_out:
+	return result;
+}
+
+
+
 static const struct file_operations lbm_sysfs_debug_ops = {
 	.read = lbm_sysfs_debug_read,
 	.write = lbm_sysfs_debug_write,
 	.llseek = generic_file_llseek,
 };
 
-static const struct file_operations lbm_sysfs_enable_ops;
+static const struct file_operations lbm_sysfs_enable_ops = {
+	.read = lbm_sysfs_enable_read,
+	.write = lbm_sysfs_enable_write,
+	.llseek = generic_file_llseek,
+};
 static const struct file_operations lbm_sysfs_stats_ops;
 static const struct file_operations lbm_sysfs_mod_ops;
 static const struct file_operations lbm_sysfs_bpf_ingress_ops;
