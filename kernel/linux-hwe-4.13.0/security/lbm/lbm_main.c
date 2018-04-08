@@ -76,7 +76,7 @@ static int lbm_stats_enable;
 
 /* BPF map should be working so we literally do not need these */
 static unsigned long lbm_stats_db[LBM_SUB_SYS_NUM_MAX][LBM_STAT_NUM_MAX];
-static int lbm_perf[LBM_SUB_SYS_NUM_MAX][2];	/* tx: 0, rx: 1 */
+static int lbm_perf_enable[LBM_SUB_SYS_NUM_MAX][2];	/* tx: 0, rx: 1 */
 
 static struct dentry *lbm_sysfs_dir;
 static struct dentry *lbm_sysfs_enable;
@@ -383,6 +383,7 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 		spin_lock_irqsave(&lbm_bpf_ingress_db_lock, flags);
 		hlist_add_tail_rcu(&p->entry, &lbm_bpf_ingress_db[prog->aux->lbm_subsys_idx]);
 		spin_unlock_irqrestore(&lbm_bpf_ingress_db_lock, flags);
+		bpf_prog_inc(prog);
 		if (lbm_main_debug)
 			pr_info("LBM: bpf [%s] added into bpf ingress db for subsys [%d]\n",
 				p->bpf_name, p->bpf->aux->lbm_subsys_idx);
@@ -392,6 +393,7 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 		spin_lock_irqsave(&lbm_bpf_egress_db_lock, flags);
 		hlist_add_tail_rcu(&p->entry, &lbm_bpf_egress_db[prog->aux->lbm_subsys_idx]);
 		spin_unlock_irqrestore(&lbm_bpf_egress_db_lock, flags);
+		bpf_prog_inc(prog);
 		if (lbm_main_debug)
 			pr_info("LBM: bpf [%s] added into bpf egress db for subsys [%d]\n",
 				p->bpf_name, p->bpf->aux->lbm_subsys_idx);
@@ -752,6 +754,74 @@ static ssize_t lbm_sysfs_stats_write(struct file *file, const char __user *buf,
 stats_write_out:
 	return result;
 }
+
+static ssize_t lbm_sysfs_perf_read(struct file *filp,
+					char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char tmp_buf[LBM_TMP_BUF_LEN];
+	ssize_t len;
+
+	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "usb:%d|%d, bluetooth:%d|%d, nfc:%d|%d\n",
+			lbm_stats_enable,
+			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][0],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][1],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][0],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][1]);
+	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static ssize_t lbm_sysfs_perf_write(struct file *file, const char __user *buf,
+					size_t datalen, loff_t *ppos)
+{
+	char *data;
+	char *p;
+	ssize_t res;
+
+	if (datalen >= PAGE_SIZE)
+		datalen = PAGE_SIZE - 1;
+
+	/* No partial writes. */
+	res = -EINVAL;
+	if (*ppos != 0)
+		goto perf_write_out;
+
+	data = memdup_user_nul(buf, datalen);
+	if (IS_ERR(data)) {
+		res = PTR_ERR(data);
+		goto perf_write_out;
+	}
+
+	/* Write follows this syntax:
+	 * usb:tx:0,usb:rx:1,bluetooth:rx:1,...
+	 */
+	while ((p = strsep(&data, ",")) != NULL) {
+		if (strncmp(p, "usb:tx", 6) == 0)
+			res = update_boolean_value(p+6, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
+ 		else if (strncmp(p, "usb:rx", 6) == 0)
+			res = update_debug_vlue(p+6, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
+ 		else if (strncmp(p, "bluetooth:tx", 12) == 0)
+			res = update_boolean_value(p+12, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
+ 		else if (strmcp(p, "bluetooth:rx", 12) == 0)
+			res = update_boolean_value(p+12, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
+ 		else if (strcmp(p, "nfc:tx", 6) == 0)
+			res = update_boolean_value(p+6, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
+		else if (strcmp(p, "nfc:rx", 6) == 0)
+			res = update_boolean_value(p+6, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
+ 		else {
+ 			pr_err("LBM: %s - unsupported debug option [%s]\n",
+ 				__func__, p);
+			res = -EINVAL;
+			break;
+		}
+	}
+
+perf_write_out:
+	return result;
+}
+
 
 static ssize_t lbm_sysfs_mod_read(struct file *filp,
 					char __user *buf,
