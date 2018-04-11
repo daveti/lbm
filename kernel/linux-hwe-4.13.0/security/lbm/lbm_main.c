@@ -531,20 +531,6 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 		return -1;
 	}
 
-	/* Remove this mod from DB */
-	spin_lock_irqsave(&lbm_mod_db_lock, flags);
-	hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
-		if (strncasecmp(p->mod->name, mod->name, LBM_MOD_NAME_LEN) == 0) {
-			hlist_del_rcu(&p->entry);
-			kfree_rcu(p, rcu);
-			lbm_mod_num--;
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
-	if (lbm_main_debug)
-		pr_info("LBM: mod [%s] removed from mod db\n", mod->name);
-
 	/* Remove this from ingress and egress DBs */
 	if (mod->lbm_ingress_hook) {
 		spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
@@ -560,7 +546,6 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 			pr_info("LBM: mod [%s] removed from mod ingress db for subsys [%d]\n",
 				mod->name, mod->subsys_index);
 	}
-
 	if (mod->lbm_egress_hook) {
 		spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
 		hlist_for_each_entry_rcu(q, &lbm_mod_egress_db[mod->subsys_index], entry) {
@@ -575,6 +560,20 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 			pr_info("LBM: mod [%s] removed from mod egress db for subsys [%d]\n",
 				mod->name, mod->subsys_index);
 	}
+
+	/* Remove this mod from DB */
+	spin_lock_irqsave(&lbm_mod_db_lock, flags);
+	hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
+		if (strncasecmp(p->mod->name, mod->name, LBM_MOD_NAME_LEN) == 0) {
+			hlist_del_rcu(&p->entry);
+			kfree_rcu(p, rcu);
+			lbm_mod_num--;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
+	if (lbm_main_debug)
+		pr_info("LBM: mod [%s] removed from mod db\n", mod->name);
 
 	return 0;
 }
@@ -798,21 +797,20 @@ static ssize_t lbm_sysfs_perf_write(struct file *file, const char __user *buf,
 	 * usb:tx:0,usb:rx:1,bluetooth:rx:1,...
 	 */
 	while ((p = strsep(&data, ",")) != NULL) {
-		if (strncmp(p, "usb:tx", 6) == 0)
-			res = update_boolean_value(p+6, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
- 		else if (strncmp(p, "usb:rx", 6) == 0)
-			res = update_debug_vlue(p+6, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
- 		else if (strncmp(p, "bluetooth:tx", 12) == 0)
-			res = update_boolean_value(p+12, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
- 		else if (strmcp(p, "bluetooth:rx", 12) == 0)
-			res = update_boolean_value(p+12, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
- 		else if (strcmp(p, "nfc:tx", 6) == 0)
-			res = update_boolean_value(p+6, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
-		else if (strcmp(p, "nfc:rx", 6) == 0)
-			res = update_boolean_value(p+6, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
+		if (strncmp(p, "usb:tx:", 7) == 0)
+			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
+ 		else if (strncmp(p, "usb:rx:", 7) == 0)
+			res = update_debug_vlue(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
+ 		else if (strncmp(p, "bluetooth:tx:", 13) == 0)
+			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
+ 		else if (strmcp(p, "bluetooth:rx:", 13) == 0)
+			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
+ 		else if (strcmp(p, "nfc:tx:", 7) == 0)
+			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
+		else if (strcmp(p, "nfc:rx:", 7) == 0)
+			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
  		else {
- 			pr_err("LBM: %s - unsupported debug option [%s]\n",
- 				__func__, p);
+ 			pr_err("LBM: %s - unsupported endable option [%s]\n", __func__, p);
 			res = -EINVAL;
 			break;
 		}
@@ -833,12 +831,65 @@ static ssize_t lbm_sysfs_mod_read(struct file *filp,
 
 	rcu_read_lock();
 	hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
-		/* FIXME */
-		len += scnprintf(tmp_buf+len+1, LBM_TMP_BUF_LEN-len-1, "%s\n",
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s\n",
 			p->mod->name);
 	}
 	rcu_read_unlock();
 	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static int remove_mod_ingress_given_name(char *name)
+{
+	struct lbm_bpf_mod_info *q;
+	unsigned long flags;
+	int res;
+	int i;
+
+	res = -1;
+	spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
+	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
+		hlist_for_each_entry_rcu(q, &lbm_mod_ingress_db[i], entry) {
+			if (strncasecmp(q->mod->name, name, LBM_MOD_NAME_LEN) == 0) {
+				hlist_del_rcu(&q->entry);
+				kfree_rcu(q, rcu);
+				res = 0;
+				if (lbm_main_debug)
+					pr_info("LBM: mod [%s] removed from mod ingress db for subsys [%d]\n",
+						name, i);
+				goto ingress_found_mod;
+			}
+		}
+	}
+ingress_found_mod:
+	spin_unlock_irqrestore(&lbm_mod_ingress_db_lock, flags);
+	return res;
+}
+
+static int remove_mod_egress_given_name(char *name)
+{
+	struct lbm_bpf_mod_info *q;
+	unsigned long flags;
+	int res;
+	int i;
+
+	res = -1;
+	spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
+	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
+		hlist_for_each_entry_rcu(q, &lbm_mod_egress_db[i], entry) {
+			if (strncasecmp(q->mod->name, name, LBM_MOD_NAME_LEN) == 0) {
+				hlist_del_rcu(&q->entry);
+				kfree_rcu(q, rcu);
+				res = 0;
+				if (lbm_main_debug)
+					pr_info("LBM: mod [%s] removed from mod egress db for subsys [%d]\n",
+						name, i);
+				goto ingress_found_mod;
+			}
+		}
+	}
+ingress_found_mod:
+	spin_unlock_irqrestore(&lbm_mod_egress_db_lock, flags);
+	return res;
 }
 
 static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
@@ -846,7 +897,10 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 {
 	char *data;
 	char *p;
+	char *name;
 	ssize_t res;
+	unsigned long flags;
+	struct lbm_mod_info *p;
 
 	if (datalen >= PAGE_SIZE)
 		datalen = PAGE_SIZE - 1;
@@ -862,9 +916,37 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 		goto mod_write_out;
 	}
 
-	/* Only allow rm */
+	/* Only allow rm
+	 * Syntax: "rm:modname1,rm:modname2,..."
+	 */
+	while ((p = strsep(&data, ",")) != NULL) {
+		if (strncmp(p, "rm:", 3) == 0) {
+			name = p + 3;
+			/* Clear ingress and egress DBs before finally removing the mod */
+			remove_mod_ingress_given_name(name);
+			remove_mod_egress_given_name(name);
 
-	/* Also need to check ingress/egress mod db */
+			/* Remove this mod from DB */
+			spin_lock_irqsave(&lbm_mod_db_lock, flags);
+			hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
+				if (strncasecmp(p->mod->name, name, LBM_MOD_NAME_LEN) == 0) {
+					hlist_del_rcu(&p->entry);
+					kfree_rcu(p, rcu);
+					lbm_mod_num--;
+					break;
+				}
+			}
+			spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
+			res = 0;
+			if (lbm_main_debug)
+				pr_info("LBM: mod [%s] removed from mod db\n", name);
+		} else {
+			pr_err("LBM: %s - unsupported modules option [%s]\n",
+				__func__, p);
+			res = -EINVAL;
+			break;
+		}
+	}
 
 mod_write_out:
 	return result;
@@ -902,10 +984,30 @@ static const struct file_operations lbm_sysfs_mod_ops = {
 	.llseek = generic_file_llseek,
 };
 
-static const struct file_operations lbm_sysfs_bpf_ingress_ops;
-static const struct file_operations lbm_sysfs_bpf_egress_ops;
-static const struct file_operations lbm_sysfs_mod_ingress_ops;
-static const struct file_operations lbm_sysfs_mod_egress_ops;
+static const struct file_operations lbm_sysfs_bpf_ingress_ops = {
+	.read = lbm_sysfs_bpf_ingress_read,
+	.write = lbm_sysfs_bpf_ingress_write,
+	.llseek = generic_file_llseek,
+};
+
+static const struct file_operations lbm_sysfs_bpf_egress_ops = {
+	.read = lbm_sysfs_bpf_egress_read,
+	.write = lbm_sysfs_bpf_egress_write,
+	.llseek = generic_file_llseek,
+};
+
+static const struct file_operations lbm_sysfs_mod_ingress_ops = {
+	.read = lbm_sysfs_mod_ingress_read,
+	.write = lbm_sysfs_mod_ingress_write,
+	.llseek = generic_file_llseek,
+};
+
+static const struct file_operations lbm_sysfs_mod_egress_ops = {
+	.read = lbm_sysfs_mod_egress_read,
+	.write = lbm_sysfs_mod_egress_write,
+	.llseek = generic_file_llseek,
+};
+
 
 int lbm_init_sysfs(void)
 {
