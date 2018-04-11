@@ -259,7 +259,7 @@ filter_pkt_early_ret:
 	}
 	if (lbm_main_debug)
 		pr_info("LBM: %s - subsys [%d], dir [%d], pkt [%p], res [%d]\n",
-			subsys, dir, pkt, res);
+			__func__, subsys, dir, pkt, res);
 	return res;
 }
 
@@ -589,7 +589,7 @@ static inline int update_boolean_value(char *val, int *target)
 	if (rv < 0)
 		return rv;
 
-	if (value == 0) || (value == 1) {
+	if ((value == 0) || (value == 1)) {
 		*target = value;
 		return 0;
 	}
@@ -640,12 +640,12 @@ static ssize_t lbm_sysfs_debug_write(struct file *file, const char __user *buf,
 		if (strncmp(p, "main:", 5) == 0)
 			res = update_boolean_value(p+5, &lbm_main_debug);
 		else if (strncmp(p, "bpf:", 4) == 0)
-			res = update_debug_vlue(p+4, &lbm_bpf_debug);
+			res = update_boolean_value(p+4, &lbm_bpf_debug);
 		else if (strncmp(p, "usb:", 4) == 0)
 			res = update_boolean_value(p+4, &lbm_usb_debug);
-		else if (strmcp(p, "bluetooth:", 10) == 0)
+		else if (strncmp(p, "bluetooth:", 10) == 0)
 			res = update_boolean_value(p+10, &lbm_bluetooth_debug);
-		else if (strcmp(p, "nfc:", 4) == 0)
+		else if (strncmp(p, "nfc:", 4) == 0)
 			res = update_boolean_value(p+4, &lbm_nfc_debug);
 		else {
 			pr_err("LBM: %s - unsupported debug option [%s]\n",
@@ -656,7 +656,7 @@ static ssize_t lbm_sysfs_debug_write(struct file *file, const char __user *buf,
 	}
 
 debug_write_out:
-	return result;
+	return res;
 }
 
 static ssize_t lbm_sysfs_enable_read(struct file *filp,
@@ -674,7 +674,6 @@ static ssize_t lbm_sysfs_enable_write(struct file *file, const char __user *buf,
 					size_t datalen, loff_t *ppos)
 {
 	char *data;
-	char *p;
 	ssize_t res;
 
 	if (datalen >= PAGE_SIZE)
@@ -694,7 +693,7 @@ static ssize_t lbm_sysfs_enable_write(struct file *file, const char __user *buf,
 	return update_boolean_value(data, &lbm_enable);
 
 enable_write_out:
-	return result;
+	return res;
 }
 
 static ssize_t lbm_sysfs_stats_read(struct file *filp,
@@ -728,7 +727,6 @@ static ssize_t lbm_sysfs_stats_write(struct file *file, const char __user *buf,
 					size_t datalen, loff_t *ppos)
 {
 	char *data;
-	char *p;
 	ssize_t res;
 
 	if (datalen >= PAGE_SIZE)
@@ -751,7 +749,7 @@ static ssize_t lbm_sysfs_stats_write(struct file *file, const char __user *buf,
 		memset(lbm_stats_db, 0x0, sizeof(lbm_stats_db));
 
 stats_write_out:
-	return result;
+	return res;
 }
 
 static ssize_t lbm_sysfs_perf_read(struct file *filp,
@@ -761,7 +759,7 @@ static ssize_t lbm_sysfs_perf_read(struct file *filp,
 	char tmp_buf[LBM_TMP_BUF_LEN];
 	ssize_t len;
 
-	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "usb:%d|%d, bluetooth:%d|%d, nfc:%d|%d\n",
+	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "stats:%d, usb:%d|%d, bluetooth:%d|%d, nfc:%d|%d\n",
 			lbm_stats_enable,
 			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0],
 			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1],
@@ -800,14 +798,14 @@ static ssize_t lbm_sysfs_perf_write(struct file *file, const char __user *buf,
 		if (strncmp(p, "usb:tx:", 7) == 0)
 			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
  		else if (strncmp(p, "usb:rx:", 7) == 0)
-			res = update_debug_vlue(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
+			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
  		else if (strncmp(p, "bluetooth:tx:", 13) == 0)
 			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
- 		else if (strmcp(p, "bluetooth:rx:", 13) == 0)
+ 		else if (strncmp(p, "bluetooth:rx:", 13) == 0)
 			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
- 		else if (strcmp(p, "nfc:tx:", 7) == 0)
+ 		else if (strncmp(p, "nfc:tx:", 7) == 0)
 			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
-		else if (strcmp(p, "nfc:rx:", 7) == 0)
+		else if (strncmp(p, "nfc:rx:", 7) == 0)
 			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
  		else {
  			pr_err("LBM: %s - unsupported endable option [%s]\n", __func__, p);
@@ -817,7 +815,7 @@ static ssize_t lbm_sysfs_perf_write(struct file *file, const char __user *buf,
 	}
 
 perf_write_out:
-	return result;
+	return res;
 }
 
 
@@ -900,7 +898,7 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 	char *name;
 	ssize_t res;
 	unsigned long flags;
-	struct lbm_mod_info *p;
+	struct lbm_mod_info *q;
 
 	if (datalen >= PAGE_SIZE)
 		datalen = PAGE_SIZE - 1;
@@ -929,10 +927,10 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 
 			/* Remove this mod from DB */
 			spin_lock_irqsave(&lbm_mod_db_lock, flags);
-			hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
-				if (strncasecmp(p->mod->name, name, LBM_MOD_NAME_LEN) == 0) {
-					hlist_del_rcu(&p->entry);
-					kfree_rcu(p, rcu);
+			hlist_for_each_entry_rcu(q, &lbm_mod_db, entry) {
+				if (strncasecmp(q->mod->name, name, LBM_MOD_NAME_LEN) == 0) {
+					hlist_del_rcu(&q->entry);
+					kfree_rcu(q, rcu);
 					lbm_mod_num--;
 					if (lbm_main_debug)
 						pr_info("LBM: mod [%s] removed from mod db\n", name);
@@ -949,7 +947,7 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 	}
 
 mod_write_out:
-	return result;
+	return res;
 }
 
 static ssize_t lbm_sysfs_bpf_ingress_read(struct file *filp,
@@ -959,11 +957,16 @@ static ssize_t lbm_sysfs_bpf_ingress_read(struct file *filp,
 	char tmp_buf[LBM_TMP_BUF_LEN];
 	struct lbm_bpf_mod_info *p;
 	ssize_t len = 0;
+	int i;
 
 	rcu_read_lock();
-	hlist_for_each_entry_rcu(p, &lbm_bpf_ingress_db, entry) {
-		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s\n",
-				p->bpf_name);
+	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "subsys %d: ", i);
+		hlist_for_each_entry_rcu(p, &lbm_bpf_ingress_db[i], entry) {
+			len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s ",
+					p->bpf_name);
+		}
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "\n");
 	}
 	rcu_read_unlock();
 	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
@@ -977,7 +980,8 @@ static ssize_t lbm_sysfs_bpf_ingress_write(struct file *file, const char __user 
 	char *name;
 	ssize_t res;
 	unsigned long flags;
-	struct lbm_bpf_mod_info *p;
+	struct lbm_bpf_mod_info *q;
+	int i;
 
 	if (datalen >= PAGE_SIZE)
 		datalen = PAGE_SIZE - 1;
@@ -1002,15 +1006,20 @@ static ssize_t lbm_sysfs_bpf_ingress_write(struct file *file, const char __user 
 			name = p + 3;
 			/* Remove this from DB */
 			spin_lock_irqsave(&lbm_bpf_ingress_db_lock, flags);
-			hlist_for_each_entry_rcu(p, &lbm_bpf_ingress_db, entry) {
-				if (strncasecmp(p->bpf_name, name, LBM_MOD_NAME_LEN) == 0) {
-					hlist_del_rcu(&p->entry);
-					kfree_rcu(p, rcu);
-					if (lbm_main_debug)
-						pr_info("LBM: bpf [%s] removed from bpf ingress db\n", name);
-					break;
+			for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
+				hlist_for_each_entry_rcu(q, &lbm_bpf_ingress_db[i], entry) {
+					if (strncasecmp(q->bpf_name, name, LBM_MOD_NAME_LEN) == 0) {
+						bpf_prog_sub(q->bpf, 1);
+						hlist_del_rcu(&q->entry);
+						kfree_rcu(q, rcu);
+						if (lbm_main_debug)
+							pr_info("LBM: bpf [%s] removed from bpf ingress db for subsys [%d]\n",
+								name, i);
+						goto bpf_ingress_write_found;
+					}
 				}
 			}
+bpf_ingress_write_found:
 			spin_unlock_irqrestore(&lbm_bpf_ingress_db_lock, flags);
 		} else {
 			pr_err("LBM: %s - unsupported bpf ingress option [%s]\n",
@@ -1021,7 +1030,7 @@ static ssize_t lbm_sysfs_bpf_ingress_write(struct file *file, const char __user 
 	}
 
 bpf_ingress_write_out:
-	return result;
+	return res;
 }
 
 static ssize_t lbm_sysfs_bpf_egress_read(struct file *filp,
@@ -1031,11 +1040,16 @@ static ssize_t lbm_sysfs_bpf_egress_read(struct file *filp,
 	char tmp_buf[LBM_TMP_BUF_LEN];
 	struct lbm_bpf_mod_info *p;
 	ssize_t len = 0;
+	int i;
 
 	rcu_read_lock();
-	hlist_for_each_entry_rcu(p, &lbm_bpf_egress_db, entry) {
-		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s\n",
-				p->bpf_name);
+	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "subsys [%d]: ", i);
+		hlist_for_each_entry_rcu(p, &lbm_bpf_egress_db[i], entry) {
+			len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s ",
+					p->bpf_name);
+		}
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "\n");
 	}
 	rcu_read_unlock();
 	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
@@ -1049,7 +1063,8 @@ static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *
 	char *name;
 	ssize_t res;
 	unsigned long flags;
-	struct lbm_bpf_mod_info *p;
+	struct lbm_bpf_mod_info *q;
+	int i;
 
 	if (datalen >= PAGE_SIZE)
 		datalen = PAGE_SIZE - 1;
@@ -1074,15 +1089,20 @@ static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *
 			name = p + 3;
 			/* Remove this from DB */
 			spin_lock_irqsave(&lbm_bpf_egress_db_lock, flags);
-			hlist_for_each_entry_rcu(p, &lbm_bpf_egress_db, entry) {
-				if (strncasecmp(p->bpf_name, name, LBM_MOD_NAME_LEN) == 0) {
-					hlist_del_rcu(&p->entry);
-					kfree_rcu(p, rcu);
-					if (lbm_main_debug)
-						pr_info("LBM: bpf [%s] removed from bpf egress db\n", name);
-					break;
+			for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
+				hlist_for_each_entry_rcu(q, &lbm_bpf_egress_db[i], entry) {
+					if (strncasecmp(q->bpf_name, name, LBM_MOD_NAME_LEN) == 0) {
+						bpf_prog_sub(q->bpf, 1);
+						hlist_del_rcu(&q->entry);
+						kfree_rcu(q, rcu);
+						if (lbm_main_debug)
+							pr_info("LBM: bpf [%s] removed from bpf egress db for subsys [%d]\n",
+								name, i);
+						goto bpf_egress_write_found;
+					}
 				}
 			}
+bpf_egress_write_found:
 			spin_unlock_irqrestore(&lbm_bpf_egress_db_lock, flags);
 		} else {
 			pr_err("LBM: %s - unsupported bpf egress option [%s]\n",
@@ -1093,7 +1113,7 @@ static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *
 	}
 
 bpf_egress_write_out:
-	return result;
+	return res;
 }
 
 static ssize_t lbm_sysfs_mod_ingress_read(struct file *filp,
@@ -1103,11 +1123,16 @@ static ssize_t lbm_sysfs_mod_ingress_read(struct file *filp,
 	char tmp_buf[LBM_TMP_BUF_LEN];
 	struct lbm_bpf_mod_info *p;
 	ssize_t len = 0;
+	int i;
 
 	rcu_read_lock();
-	hlist_for_each_entry_rcu(p, &lbm_mod_ingress_db, entry) {
-		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s\n",
-				p->mod->name);
+	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "subsys [%d]: ", i);
+		hlist_for_each_entry_rcu(p, &lbm_mod_ingress_db[i], entry) {
+			len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s ",
+					p->mod->name);
+		}
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "\n");
 	}
 	rcu_read_unlock();
 	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
@@ -1120,8 +1145,6 @@ static ssize_t lbm_sysfs_mod_ingress_write(struct file *file, const char __user 
 	char *p;
 	char *name;
 	ssize_t res;
-	unsigned long flags;
-	struct lbm_bpf_mod_info *p;
 
 	if (datalen >= PAGE_SIZE)
 		datalen = PAGE_SIZE - 1;
@@ -1138,7 +1161,7 @@ static ssize_t lbm_sysfs_mod_ingress_write(struct file *file, const char __user 
 	}
 
 	/* Only allow rm
-	 * Syntax: "rm:bpfname1,rm:bpfname2,..."
+	 * Syntax: "rm:modname1,rm:modname2,..."
 	 */
 	while ((p = strsep(&data, ",")) != NULL) {
 		if (strncmp(p, "rm:", 3) == 0) {
@@ -1159,7 +1182,7 @@ static ssize_t lbm_sysfs_mod_ingress_write(struct file *file, const char __user 
 	}
 
 mod_ingress_write_out:
-	return result;
+	return res;
 }
 
 static ssize_t lbm_sysfs_mod_egress_read(struct file *filp,
@@ -1169,11 +1192,16 @@ static ssize_t lbm_sysfs_mod_egress_read(struct file *filp,
 	char tmp_buf[LBM_TMP_BUF_LEN];
 	struct lbm_bpf_mod_info *p;
 	ssize_t len = 0;
+	int i;
 
 	rcu_read_lock();
-	hlist_for_each_entry_rcu(p, &lbm_mod_egress_db, entry) {
-		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s\n",
-				p->mod->name);
+	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "subsys [%d]: ", i);
+		hlist_for_each_entry_rcu(p, &lbm_mod_egress_db[i], entry) {
+			len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s ",
+					p->mod->name);
+		}
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "\n");
 	}
 	rcu_read_unlock();
 	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
@@ -1186,8 +1214,6 @@ static ssize_t lbm_sysfs_mod_egress_write(struct file *file, const char __user *
 	char *p;
 	char *name;
 	ssize_t res;
-	unsigned long flags;
-	struct lbm_bpf_mod_info *p;
 
 	if (datalen >= PAGE_SIZE)
 		datalen = PAGE_SIZE - 1;
@@ -1204,7 +1230,7 @@ static ssize_t lbm_sysfs_mod_egress_write(struct file *file, const char __user *
 	}
 
 	/* Only allow rm
-	 * Syntax: "rm:bpfname1,rm:bpfname2,..."
+	 * Syntax: "rm:modname1,rm:modname2,..."
 	 */
 	while ((p = strsep(&data, ",")) != NULL) {
 		if (strncmp(p, "rm:", 3) == 0) {
@@ -1225,7 +1251,7 @@ static ssize_t lbm_sysfs_mod_egress_write(struct file *file, const char __user *
 	}
 
 mod_egress_write_out:
-	return result;
+	return res;
 }
 
 
