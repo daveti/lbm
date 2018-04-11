@@ -919,6 +919,7 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 	/* Only allow rm
 	 * Syntax: "rm:modname1,rm:modname2,..."
 	 */
+	res = 0;
 	while ((p = strsep(&data, ",")) != NULL) {
 		if (strncmp(p, "rm:", 3) == 0) {
 			name = p + 3;
@@ -933,13 +934,12 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 					hlist_del_rcu(&p->entry);
 					kfree_rcu(p, rcu);
 					lbm_mod_num--;
+					if (lbm_main_debug)
+						pr_info("LBM: mod [%s] removed from mod db\n", name);
 					break;
 				}
 			}
 			spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
-			res = 0;
-			if (lbm_main_debug)
-				pr_info("LBM: mod [%s] removed from mod db\n", name);
 		} else {
 			pr_err("LBM: %s - unsupported modules option [%s]\n",
 				__func__, p);
@@ -949,6 +949,150 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 	}
 
 mod_write_out:
+	return result;
+}
+
+static ssize_t lbm_sysfs_bpf_ingress_read(struct file *filp,
+					char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char tmp_buf[LBM_TMP_BUF_LEN];
+	struct lbm_bpf_mod_info *p;
+	ssize_t len = 0;
+
+	rcu_read_lock();
+	hlist_for_each_entry_rcu(p, &lbm_bpf_ingress_db, entry) {
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s\n",
+				p->bpf_name);
+	}
+	rcu_read_unlock();
+	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static ssize_t lbm_sysfs_bpf_ingress_write(struct file *file, const char __user *buf,
+					size_t datalen, loff_t *ppos)
+{
+	char *data;
+	char *p;
+	char *name;
+	ssize_t res;
+	unsigned long flags;
+	struct lbm_bpf_mod_info *p;
+
+	if (datalen >= PAGE_SIZE)
+		datalen = PAGE_SIZE - 1;
+
+	/* No partial writes. */
+	res = -EINVAL;
+	if (*ppos != 0)
+		goto mod_write_out;
+
+	data = memdup_user_nul(buf, datalen);
+	if (IS_ERR(data)) {
+		res = PTR_ERR(data);
+		goto mod_write_out;
+	}
+
+	/* Only allow rm
+	 * Syntax: "rm:bpfname1,rm:bpfname2,..."
+	 */
+	res = 0;
+	while ((p = strsep(&data, ",")) != NULL) {
+		if (strncmp(p, "rm:", 3) == 0) {
+			name = p + 3;
+			/* Remove this from DB */
+			spin_lock_irqsave(&lbm_bpf_ingress_db_lock, flags);
+			hlist_for_each_entry_rcu(p, &lbm_bpf_ingress_db, entry) {
+				if (strncasecmp(p->bpf_name, name, LBM_MOD_NAME_LEN) == 0) {
+					hlist_del_rcu(&p->entry);
+					kfree_rcu(p, rcu);
+					if (lbm_main_debug)
+						pr_info("LBM: bpf [%s] removed from bpf ingress db\n", name);
+					break;
+				}
+			}
+			spin_unlock_irqrestore(&lbm_bpf_ingress_db_lock, flags);
+		} else {
+			pr_err("LBM: %s - unsupported modules option [%s]\n",
+				__func__, p);
+			res = -EINVAL;
+			break;
+		}
+	}
+
+bpf_ingress_write_out:
+	return result;
+}
+
+static ssize_t lbm_sysfs_bpf_egress_read(struct file *filp,
+					char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char tmp_buf[LBM_TMP_BUF_LEN];
+	struct lbm_bpf_mod_info *p;
+	ssize_t len = 0;
+
+	rcu_read_lock();
+	hlist_for_each_entry_rcu(p, &lbm_bpf_egress_db, entry) {
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s\n",
+				p->bpf_name);
+	}
+	rcu_read_unlock();
+	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *buf,
+					size_t datalen, loff_t *ppos)
+{
+	char *data;
+	char *p;
+	char *name;
+	ssize_t res;
+	unsigned long flags;
+	struct lbm_bpf_mod_info *p;
+
+	if (datalen >= PAGE_SIZE)
+		datalen = PAGE_SIZE - 1;
+
+	/* No partial writes. */
+	res = -EINVAL;
+	if (*ppos != 0)
+		goto mod_write_out;
+
+	data = memdup_user_nul(buf, datalen);
+	if (IS_ERR(data)) {
+		res = PTR_ERR(data);
+		goto mod_write_out;
+	}
+
+	/* Only allow rm
+	 * Syntax: "rm:bpfname1,rm:bpfname2,..."
+	 */
+	res = 0;
+	while ((p = strsep(&data, ",")) != NULL) {
+		if (strncmp(p, "rm:", 3) == 0) {
+			name = p + 3;
+			/* Remove this from DB */
+			spin_lock_irqsave(&lbm_bpf_egress_db_lock, flags);
+			hlist_for_each_entry_rcu(p, &lbm_bpf_egress_db, entry) {
+				if (strncasecmp(p->bpf_name, name, LBM_MOD_NAME_LEN) == 0) {
+					hlist_del_rcu(&p->entry);
+					kfree_rcu(p, rcu);
+					if (lbm_main_debug)
+						pr_info("LBM: bpf [%s] removed from bpf egress db\n", name);
+					break;
+				}
+			}
+			spin_unlock_irqrestore(&lbm_bpf_egress_db_lock, flags);
+		} else {
+			pr_err("LBM: %s - unsupported modules option [%s]\n",
+				__func__, p);
+			res = -EINVAL;
+			break;
+		}
+	}
+
+bpf_egress_write_out:
 	return result;
 }
 
