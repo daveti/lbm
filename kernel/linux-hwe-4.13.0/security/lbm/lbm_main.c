@@ -985,12 +985,12 @@ static ssize_t lbm_sysfs_bpf_ingress_write(struct file *file, const char __user 
 	/* No partial writes. */
 	res = -EINVAL;
 	if (*ppos != 0)
-		goto mod_write_out;
+		goto bpf_ingress_write_out;
 
 	data = memdup_user_nul(buf, datalen);
 	if (IS_ERR(data)) {
 		res = PTR_ERR(data);
-		goto mod_write_out;
+		goto bpf_ingress_write_out;
 	}
 
 	/* Only allow rm
@@ -1013,7 +1013,7 @@ static ssize_t lbm_sysfs_bpf_ingress_write(struct file *file, const char __user 
 			}
 			spin_unlock_irqrestore(&lbm_bpf_ingress_db_lock, flags);
 		} else {
-			pr_err("LBM: %s - unsupported modules option [%s]\n",
+			pr_err("LBM: %s - unsupported bpf ingress option [%s]\n",
 				__func__, p);
 			res = -EINVAL;
 			break;
@@ -1057,12 +1057,12 @@ static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *
 	/* No partial writes. */
 	res = -EINVAL;
 	if (*ppos != 0)
-		goto mod_write_out;
+		goto bpf_egress_write_out;
 
 	data = memdup_user_nul(buf, datalen);
 	if (IS_ERR(data)) {
 		res = PTR_ERR(data);
-		goto mod_write_out;
+		goto bpf_egress_write_out;
 	}
 
 	/* Only allow rm
@@ -1085,7 +1085,7 @@ static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *
 			}
 			spin_unlock_irqrestore(&lbm_bpf_egress_db_lock, flags);
 		} else {
-			pr_err("LBM: %s - unsupported modules option [%s]\n",
+			pr_err("LBM: %s - unsupported bpf egress option [%s]\n",
 				__func__, p);
 			res = -EINVAL;
 			break;
@@ -1093,6 +1093,138 @@ static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *
 	}
 
 bpf_egress_write_out:
+	return result;
+}
+
+static ssize_t lbm_sysfs_mod_ingress_read(struct file *filp,
+					char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char tmp_buf[LBM_TMP_BUF_LEN];
+	struct lbm_bpf_mod_info *p;
+	ssize_t len = 0;
+
+	rcu_read_lock();
+	hlist_for_each_entry_rcu(p, &lbm_mod_ingress_db, entry) {
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s\n",
+				p->mod->name);
+	}
+	rcu_read_unlock();
+	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static ssize_t lbm_sysfs_mod_ingress_write(struct file *file, const char __user *buf,
+					size_t datalen, loff_t *ppos)
+{
+	char *data;
+	char *p;
+	char *name;
+	ssize_t res;
+	unsigned long flags;
+	struct lbm_bpf_mod_info *p;
+
+	if (datalen >= PAGE_SIZE)
+		datalen = PAGE_SIZE - 1;
+
+	/* No partial writes. */
+	res = -EINVAL;
+	if (*ppos != 0)
+		goto mod_ingress_write_out;
+
+	data = memdup_user_nul(buf, datalen);
+	if (IS_ERR(data)) {
+		res = PTR_ERR(data);
+		goto mod_ingress_write_out;
+	}
+
+	/* Only allow rm
+	 * Syntax: "rm:bpfname1,rm:bpfname2,..."
+	 */
+	while ((p = strsep(&data, ",")) != NULL) {
+		if (strncmp(p, "rm:", 3) == 0) {
+			name = p + 3;
+			/* Remove this from DB */
+			res = remove_mod_ingress_given_name(name);
+			if (res) {
+				pr_err("LBM: %s - removing mod ingress [%s] failed\n",
+					__func__, name);
+				break;
+			}
+		} else {
+			pr_err("LBM: %s - unsupported mod ingress option [%s]\n",
+				__func__, p);
+			res = -EINVAL;
+			break;
+		}
+	}
+
+mod_ingress_write_out:
+	return result;
+}
+
+static ssize_t lbm_sysfs_mod_egress_read(struct file *filp,
+					char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char tmp_buf[LBM_TMP_BUF_LEN];
+	struct lbm_bpf_mod_info *p;
+	ssize_t len = 0;
+
+	rcu_read_lock();
+	hlist_for_each_entry_rcu(p, &lbm_mod_egress_db, entry) {
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s\n",
+				p->mod->name);
+	}
+	rcu_read_unlock();
+	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static ssize_t lbm_sysfs_mod_egress_write(struct file *file, const char __user *buf,
+					size_t datalen, loff_t *ppos)
+{
+	char *data;
+	char *p;
+	char *name;
+	ssize_t res;
+	unsigned long flags;
+	struct lbm_bpf_mod_info *p;
+
+	if (datalen >= PAGE_SIZE)
+		datalen = PAGE_SIZE - 1;
+
+	/* No partial writes. */
+	res = -EINVAL;
+	if (*ppos != 0)
+		goto mod_egress_write_out;
+
+	data = memdup_user_nul(buf, datalen);
+	if (IS_ERR(data)) {
+		res = PTR_ERR(data);
+		goto mod_egress_write_out;
+	}
+
+	/* Only allow rm
+	 * Syntax: "rm:bpfname1,rm:bpfname2,..."
+	 */
+	while ((p = strsep(&data, ",")) != NULL) {
+		if (strncmp(p, "rm:", 3) == 0) {
+			name = p + 3;
+			/* Remove this from DB */
+			res = remove_mod_egress_given_name(name);
+			if (res) {
+				pr_err("LBM: %s - removing mod egress [%s] failed\n",
+					__func__, name);
+				break;
+			}
+		} else {
+			pr_err("LBM: %s - unsupported mod egress option [%s]\n",
+				__func__, p);
+			res = -EINVAL;
+			break;
+		}
+	}
+
+mod_egress_write_out:
 	return result;
 }
 
