@@ -31,7 +31,7 @@
 #include <linux/prctl.h>
 #include <net/flow.h>
 #include <net/sock.h>
-#include <linux/lbm.h>		/* daveti: for lbm */
+//#include <linux/lbm.h>		/* daveti: for lbm */
 
 #define MAX_LSM_EVM_XATTR	2
 
@@ -104,7 +104,8 @@ int __init security_init(void)
 
 #ifdef CONFIG_LBM
 	/* daveti: init lbm here */
-	lbm_init();
+	//lbm_init();
+	/* Nop, can't do init here -- too early */
 #endif
 
 

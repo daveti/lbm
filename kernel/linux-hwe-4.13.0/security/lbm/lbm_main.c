@@ -1320,7 +1320,7 @@ int lbm_init_sysfs(void)
 	if (IS_ERR(lbm_sysfs_dir))
 		return -1;
 
-	lbm_sysfs_debug = securityfs_create_file("enable", 0600, lbm_sysfs_dir,
+	lbm_sysfs_enable = securityfs_create_file("enable", 0600, lbm_sysfs_dir,
 				NULL, &lbm_sysfs_enable_ops);
 	if (IS_ERR(lbm_sysfs_enable))
 		goto init_sysfs_failed;
@@ -1335,7 +1335,7 @@ int lbm_init_sysfs(void)
 	if (IS_ERR(lbm_sysfs_stats))
 		goto init_sysfs_failed;
 
-	lbm_sysfs_stats = securityfs_create_file("perf", 0600, lbm_sysfs_dir,
+	lbm_sysfs_perf = securityfs_create_file("perf", 0600, lbm_sysfs_dir,
 				NULL, &lbm_sysfs_perf_ops);
 	if (IS_ERR(lbm_sysfs_perf))
 		goto init_sysfs_failed;
@@ -1383,14 +1383,19 @@ init_sysfs_failed:
 
 
 /* init/exit */
-void __init lbm_init(void)
+static int __init lbm_init(void)
 {
-	if (lbm_init_sysfs())
+	if (lbm_init_sysfs()) {
 		pr_err("LBM initialization failed\n");
-	else
+		return -1;
+	} else 
 		pr_info("LBM initialized\n");
+
+	return 0;
 }
 
-void lbm_exit(void)
-{
-}
+late_initcall(lbm_init);        /* Start LBM late */
+
+MODULE_DESCRIPTION("Linux (e)BPF Modules");
+MODULE_LICENSE("GPL");
+
