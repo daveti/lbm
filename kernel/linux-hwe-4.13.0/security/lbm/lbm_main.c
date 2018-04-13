@@ -30,7 +30,7 @@
 #define LBM_MOD_NUM_MAX			32	/* not used for now */
 #define LBM_MOD_ACT_ADD			0
 #define LBM_MOD_ACT_DEL			1
-#define LBM_TMP_BUF_LEN			128
+#define LBM_TMP_BUF_LEN			256
 #define LBM_STAT_TX_CNT			0
 #define LBM_STAT_TX_CNT_FILTERED	1
 #define LBM_STAT_RX_CNT			2
@@ -328,11 +328,6 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 	char tmp_name[LBM_BPF_NAME_LEN];
 	unsigned long flags;
 	int len;
-
-	if (!lbm_enable) {
-		pr_err("LBM: %s failed when LBM disabled\n", __func__);
-		return -1;
-	}
 
 	/* Check subsys */
 	if (check_subsys(prog->aux->lbm_subsys_idx)) {
@@ -759,7 +754,7 @@ static ssize_t lbm_sysfs_perf_read(struct file *filp,
 	char tmp_buf[LBM_TMP_BUF_LEN];
 	ssize_t len;
 
-	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "stats:%d, usb:%d|%d, bluetooth:%d|%d, nfc:%d|%d\n",
+	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "enabled:%d, usb:%d|%d, bluetooth:%d|%d, nfc:%d|%d\n",
 			lbm_stats_enable,
 			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0],
 			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1],
@@ -961,7 +956,7 @@ static ssize_t lbm_sysfs_bpf_ingress_read(struct file *filp,
 
 	rcu_read_lock();
 	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
-		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "subsys %d: ", i);
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "subsys [%d]: ", i);
 		hlist_for_each_entry_rcu(p, &lbm_bpf_ingress_db[i], entry) {
 			len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s ",
 					p->bpf_name);

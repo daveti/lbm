@@ -49,6 +49,8 @@
 #include <linux/usb/phy.h>
 #include <linux/usb/otg.h>
 
+#include <linux/lbm.h>	/* daveti: for lbm */
+
 #include "usb.h"
 
 
@@ -114,8 +116,6 @@ static DEFINE_SPINLOCK(hcd_urb_unlink_lock);
 /* wait queue for synchronous unlinks */
 DECLARE_WAIT_QUEUE_HEAD(usb_kill_urb_queue);
 
-/* daveti: lbm debug */
-static int lbm_debug_usb_hcd = 1;
 
 static inline int is_root_hub(struct usb_device *udev)
 {
@@ -1641,6 +1641,7 @@ int usb_hcd_submit_urb (struct urb *urb, gfp_t mem_flags)
 {
 	int			status;
 	struct usb_hcd		*hcd = bus_to_hcd(urb->dev->bus);
+	int			lbm_ret;
 
 	/* increment urb's reference count as part of giving it to the HCD
 	 * (which will control it).  HCD guarantees that it either returns
@@ -1650,6 +1651,54 @@ int usb_hcd_submit_urb (struct urb *urb, gfp_t mem_flags)
 	atomic_inc(&urb->use_count);
 	atomic_inc(&urb->dev->urbnum);
 	usbmon_urb_submit(&hcd->self, urb);
+
+	/* daveti: lbm usb look into each pkt sent */
+	if (lbm_is_enabled() && lbm_is_usb_debug_enabled()) {
+		pr_info("lbm-debug-usb-hcd: URB [%p] submit (IRQ ctx [%d]) for device: "
+			"(devnum [%d], devpath [%s], product [%s], manufacturer [%s], serial [%s]), "
+			"with pipe (type [%d], in [%d], endpoint [%d], devaddr [%d]), "
+			"with status [%d], transfer buffer len [%d], actual len [%d]\n",
+			urb, in_interrupt(),
+			urb->dev->devnum,
+			(urb->dev->devpath ? urb->dev->devpath : "UNKNOWN"),
+			(urb->dev->product ? urb->dev->product : "UNKNOWN"),
+			(urb->dev->manufacturer ? urb->dev->manufacturer : "UNKNOWN"),
+			(urb->dev->serial ? urb->dev->serial : "UNKNOWN"),
+			usb_pipetype(urb->pipe),
+			usb_pipein(urb->pipe),
+			usb_pipeendpoint(urb->pipe),
+			usb_pipedevice(urb->pipe),
+			urb->status,
+			urb->transfer_buffer_length,
+			urb->actual_length);
+
+		/* Dump the setup pkt if available */
+		if (urb->setup_packet) {
+			struct usb_ctrlrequest *ctrl_req = (struct usb_ctrlrequest *)urb->setup_packet;
+			pr_info("lbm-debug-usb-hcd: URB with setup packet: "
+				"bRequestType [%x], bRequest [%x], wValue [%x], wIndex [%x], wLength [%x]\n",
+				ctrl_req->bRequestType,
+				ctrl_req->bRequest,
+				ctrl_req->wValue,
+				ctrl_req->wIndex,
+				ctrl_req->wLength);
+		}
+
+		/* Dump status and the OUT buffer */
+		if (urb->transfer_buffer)
+			print_hex_dump(KERN_INFO, "OUT ", DUMP_PREFIX_NONE, 16, 1,
+				urb->transfer_buffer, urb->actual_length, 0);
+        }
+
+	/* daveti: this should be the RX hook */
+	lbm_ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_USB, LBM_CALL_DIR_EGRESS, (void *)urb);
+	if (lbm_ret == LBM_RES_DROP) {
+		if (lbm_is_usb_debug_enabled())
+			pr_info("lbm-debug-usb-hcd: TX URB [%p] is dropped\n", urb);
+		/* Drop the pkt */
+		status = -EINVAL;
+		goto lbm_filter_tx_jmp;
+	}
 
 	/* NOTE requirements on root-hub callers (usbfs and the hub
 	 * driver, for now):  URBs' urb->transfer_buffer must be
@@ -1669,6 +1718,8 @@ int usb_hcd_submit_urb (struct urb *urb, gfp_t mem_flags)
 				unmap_urb_for_dma(hcd, urb);
 		}
 	}
+
+lbm_filter_tx_jmp:
 
 	if (unlikely(status)) {
 		usbmon_urb_submit_error(&hcd->self, urb, status);
@@ -1751,6 +1802,7 @@ static void __usb_hcd_giveback_urb(struct urb *urb)
 	struct usb_anchor *anchor = urb->anchor;
 	int status = urb->unlinked;
 	unsigned long flags;
+	int lbm_ret;
 
 	urb->hcpriv = NULL;
 	if (unlikely((urb->transfer_flags & URB_SHORT_NOT_OK) &&
@@ -1762,7 +1814,7 @@ static void __usb_hcd_giveback_urb(struct urb *urb)
 	usbmon_urb_complete(&hcd->self, urb, status);
 
 	/* daveti: lbm usb look into each pkt received */
-	if (lbm_debug_usb_hcd) {
+	if (lbm_is_enabled() && lbm_is_usb_debug_enabled()) {
 		pr_info("lbm-debug-usb-hcd: URB [%p] giveback (IRQ ctx [%d]) for device: "
 			"(devnum [%d], devpath [%s], product [%s], manufacturer [%s], serial [%s]), "
 			"with pipe (type [%d], in [%d], endpoint [%d], devaddr [%d]), "
@@ -1794,14 +1846,19 @@ static void __usb_hcd_giveback_urb(struct urb *urb)
 		}
 
 		/* Dump status and the IN buffer */
-		if (usb_pipein(urb->pipe)) {
-			if (urb->transfer_buffer)
-				print_hex_dump(KERN_INFO, "IN ", DUMP_PREFIX_NONE, 16, 1,
-					urb->transfer_buffer, urb->actual_length, 0);
-		}
+		if (urb->transfer_buffer)
+			print_hex_dump(KERN_INFO, "IN ", DUMP_PREFIX_NONE, 16, 1,
+				urb->transfer_buffer, urb->actual_length, 0);
         }
 
-	/* daveti: TODO: this should be the front hook */
+	/* daveti: this should be the RX hook */
+	lbm_ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_USB, LBM_CALL_DIR_INGRESS, (void *)urb);
+	if (lbm_ret == LBM_RES_DROP) {
+		if (lbm_is_usb_debug_enabled())
+			pr_info("lbm-debug-usb-hcd: RX URB [%p] is dropped\n", urb);
+		/* Drop the pkt */
+		status = -EINVAL;	/* daveti: TODO - is this enought? */
+	}
 
 	usb_anchor_suspend_wakeups(anchor);
 	usb_unanchor_urb(urb);

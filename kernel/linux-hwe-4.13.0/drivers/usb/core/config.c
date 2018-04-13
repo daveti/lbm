@@ -11,16 +11,13 @@
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <asm/byteorder.h>
+#include <linux/lbm.h>		/* daveti: for lbm */
 #include "usb.h"
 
 
 #define USB_MAXALTSETTING		128	/* Hard limit */
 
 #define USB_MAXCONFIG			8	/* Arbitrary limit */
-
-
-/* daveti: for lbm debug */
-static int lbm_debug_usb_config = 1;
 
 
 static inline const char *plural(int n)
@@ -889,7 +886,7 @@ int usb_get_configuration(struct usb_device *dev)
 		 * DMA buffer receive...
 		 * Mar 26, 2018
 		 */
-		if (lbm_debug_usb_config) {
+		if (lbm_is_enabled() && lbm_is_usb_debug_enabled()) {
 			pr_info("lbm-debug-usb-config: cfgno [%d], length [%d]\n", cfgno, length);
 			print_hex_dump(KERN_INFO, "Cfg: ", DUMP_PREFIX_NONE, 16, 1,
 				bigbuffer, length, 0);

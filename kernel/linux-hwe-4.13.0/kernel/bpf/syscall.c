@@ -1038,6 +1038,9 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	char license[128];
 	bool is_gpl;
 
+	if (!lbm_is_enabled())
+		return -EFAULT;
+
 	if (CHECK_ATTR(BPF_PROG_LOAD))
 		return -EINVAL;
 
@@ -1137,6 +1140,9 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 		pr_err("lbm-bpf-syscall-error: lbm_load_bpf_prog failed with errno [%d]\n", err);
 		goto free_used_maps;
 	}
+
+	if (lbm_is_bpf_debug_enabled())
+		pr_info("lbm-bpf-syscall: bpf prog [%p] is loaded\n", prog);
 
 	return err;
 
