@@ -650,6 +650,9 @@ static ssize_t lbm_sysfs_debug_write(struct file *file, const char __user *buf,
 		}
 	}
 
+	if (!res)
+		return datalen;
+
 debug_write_out:
 	return res;
 }
@@ -685,7 +688,9 @@ static ssize_t lbm_sysfs_enable_write(struct file *file, const char __user *buf,
 		goto enable_write_out;
 	}
 
-	return update_boolean_value(data, &lbm_enable);
+	res = update_boolean_value(data, &lbm_enable);
+	if (!res)
+		return datalen;
 
 enable_write_out:
 	return res;
@@ -739,9 +744,12 @@ static ssize_t lbm_sysfs_stats_write(struct file *file, const char __user *buf,
 	}
 
 	res = update_boolean_value(data, &lbm_stats_enable);
-	if ((!res) && (lbm_stats_enable))
-		/* Have a fresh start */
-		memset(lbm_stats_db, 0x0, sizeof(lbm_stats_db));
+	if (!res) {
+		if (lbm_stats_enable)
+			/* Have a fresh start */
+			memset(lbm_stats_db, 0x0, sizeof(lbm_stats_db));
+		return datalen;
+	}
 
 stats_write_out:
 	return res;
@@ -808,6 +816,9 @@ static ssize_t lbm_sysfs_perf_write(struct file *file, const char __user *buf,
 			break;
 		}
 	}
+
+	if (!res)
+		return datalen;
 
 perf_write_out:
 	return res;
@@ -941,6 +952,9 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 		}
 	}
 
+	if (!res)
+		return datalen;
+
 mod_write_out:
 	return res;
 }
@@ -1023,6 +1037,9 @@ bpf_ingress_write_found:
 			break;
 		}
 	}
+
+	if (!res)
+		return datalen;
 
 bpf_ingress_write_out:
 	return res;
@@ -1107,6 +1124,9 @@ bpf_egress_write_found:
 		}
 	}
 
+	if (!res)
+		return datalen;
+
 bpf_egress_write_out:
 	return res;
 }
@@ -1176,6 +1196,9 @@ static ssize_t lbm_sysfs_mod_ingress_write(struct file *file, const char __user 
 		}
 	}
 
+	if (!res)
+		return datalen;
+
 mod_ingress_write_out:
 	return res;
 }
@@ -1244,6 +1267,9 @@ static ssize_t lbm_sysfs_mod_egress_write(struct file *file, const char __user *
 			break;
 		}
 	}
+
+	if (!res)
+		return datalen;
 
 mod_egress_write_out:
 	return res;
