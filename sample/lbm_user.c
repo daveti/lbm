@@ -4,6 +4,7 @@
  * root@davejingtian.org
  */
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include "libbpf.h"
 
@@ -44,7 +45,12 @@ char bpf_name[] = "daveti";	/* Should be updated accrodingly */
 
 /* Change the eBPF prog here */
 struct bpf_insn prog[] = {
-	
+	BPF_CALL_FUNC(BPF_FUNC_lbm_usb_get_devnum),	/* get devnum */
+	BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 77, 2),		/* if devnum == 77: goto pc+2 */
+	BPF_MOV64_IMM(BPF_REG_0, 0),			/* r0 = 0 -> allow the pkt */
+	BPF_EXIT_INSN(),
+	BPF_MOV64_IMM(BPF_REG_0, 1),			/* r0 = 1  -> drop the pkt */
+	BPF_EXIT_INSN(),	
 };
 
 
@@ -52,22 +58,20 @@ struct bpf_insn prog[] = {
 int main(void)
 {
 	int prog_fd;
+	union bpf_attr attr;
 
-	union bpf_attr attr = {
-		.lbm.prog_type = BPF_PROG_TYPE_LBM,
-		.lbm.insn_cnt = sizeof(prog)/sizeof(struct bpf_insn),
-		.lbm.insns = ptr_to_u64(prog),
-	.lbm.license = ptr_to_u64(license),
-	.lbm.log_level = 1,	/* debug mode */
-	.lbm.log_size = LOG_BUF_SIZE,
-	.lbm.log_buf = ptr_to_u64(bpf_log_buf),
-	.lbm.subsys_idx = 0,	/* USB */
-	.lbm.call_dir = 0,	/* Ingress */
-	.lbm.pathname = ptr_to_u64(pathname),
-	.lbm.bpf_name = ptr_to_u64(bpf_name),
-};
-
-
+	memset(&attr, 0, sizeof(attr));
+	attr.lbm.prog_type = BPF_PROG_TYPE_LBM,
+	attr.lbm.insn_cnt = sizeof(prog)/sizeof(struct bpf_insn),
+	attr.lbm.insns = ptr_to_u64(prog),
+	attr.lbm.license = ptr_to_u64(license),
+	attr.lbm.log_level = 1,	/* debug mode */
+	attr.lbm.log_size = LOG_BUF_SIZE,
+	attr.lbm.log_buf = ptr_to_u64(bpf_log_buf),
+	attr.lbm.subsys_idx = 0,	/* USB */
+	attr.lbm.call_dir = 0,	/* Ingress */
+	attr.lbm.pathname = ptr_to_u64(pathname),
+	attr.lbm.bpf_name = ptr_to_u64(bpf_name),
 
 	prog_fd = sys_bpf(BPF_PROG_LOAD_LBM, &attr, sizeof(attr));
 	printf("eBPF is loaded into fd [%d], with logs:\n", prog_fd);
