@@ -1029,6 +1029,8 @@ free_prog_nouncharge:
 }
 
 /* daveti: bsically a combo of load + pin */
+/* last field in 'union bpf_attr' used by this command */
+#define BPF_PROG_LOAD_LBM_LAST_FIELD lbm.bpf_name
 static int bpf_prog_load_lbm(union bpf_attr *attr)
 {
 	enum bpf_prog_type type = attr->lbm.prog_type;
@@ -1041,7 +1043,10 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	if (!lbm_is_enabled())
 		return -EFAULT;
 
-	if (CHECK_ATTR(BPF_PROG_LOAD))
+	if (lbm_is_bpf_debug_enabled())
+		pr_info("LBM: into %s with attr [%p]\n", __func__, attr);
+
+	if (CHECK_ATTR(BPF_PROG_LOAD_LBM))
 		return -EINVAL;
 
 	if (attr->lbm.prog_flags & ~BPF_F_STRICT_ALIGNMENT)
@@ -1071,14 +1076,14 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 
 	err = bpf_prog_charge_memlock(prog);
 	if (err)
-		goto free_prog_nouncharge;
+		goto lbm_free_prog_nouncharge;
 
 	prog->len = attr->lbm.insn_cnt;
 
 	err = -EFAULT;
 	if (copy_from_user(prog->insns, u64_to_user_ptr(attr->lbm.insns),
 			   bpf_prog_insn_size(prog)) != 0)
-		goto free_prog;
+		goto lbm_free_prog;
 
 	prog->orig_prog = NULL;
 	prog->jited = 0;
@@ -1089,7 +1094,7 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	/* daveti: LBM needs to redirect the verifier ops to be susbsys-specific */
 	err = lbm_find_prog_sub_type(prog, attr->lbm.subsys_idx, attr->lbm.call_dir);
 	if (err < 0)
-		goto free_prog;
+		goto lbm_free_prog;
 
 	/* daveti: HACK - map attr.lbm back to attr for bpf_check */ 
 	memset(&attr2, 0x0, sizeof(attr2));
@@ -1101,16 +1106,16 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	/* run eBPF verifier */
 	err = bpf_check(&prog, &attr2);
 	if (err < 0)
-		goto free_used_maps;
+		goto lbm_free_used_maps;
 
 	/* eBPF program is ready to be JITed */
 	prog = bpf_prog_select_runtime(prog, &err);
 	if (err < 0)
-		goto free_used_maps;
+		goto lbm_free_used_maps;
 
 	err = bpf_prog_alloc_id(prog);
 	if (err)
-		goto free_used_maps;
+		goto lbm_free_used_maps;
 
 	err = bpf_prog_new_fd(prog);
 	if (err < 0) {
@@ -1124,33 +1129,33 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 		return err;
 	}
 
+	bpf_prog_kallsyms_add(prog);
+	trace_bpf_prog_load(prog, err);
+
 	/* daveti: pin the program by default */
 	err = bpf_obj_pin_user(err, u64_to_user_ptr(attr->lbm.pathname));
 	if (err < 0) {
-		pr_err("lbm-bpf-syscall-error: bpf_obj_pin_user failed with errno [%d]\n", err);
-		goto free_used_maps;
+		pr_err("LBM: bpf_obj_pin_user failed with errno [%d]\n", err);
+		goto lbm_free_used_maps;
 	}
-
-	bpf_prog_kallsyms_add(prog);
-	trace_bpf_prog_load(prog, err);
 
 	/* daveti: save the bpf prog into lbm */
 	err = lbm_load_bpf_prog(prog, u64_to_user_ptr(attr->lbm.bpf_name));
 	if (err < 0) {
-		pr_err("lbm-bpf-syscall-error: lbm_load_bpf_prog failed with errno [%d]\n", err);
-		goto free_used_maps;
+		pr_err("LBM: lbm_load_bpf_prog failed with errno [%d]\n", err);
+		goto lbm_free_used_maps;
 	}
 
 	if (lbm_is_bpf_debug_enabled())
-		pr_info("lbm-bpf-syscall: bpf prog [%p] is loaded\n", prog);
+		pr_info("LBM: bpf prog [%p] is loaded\n", prog);
 
 	return err;
 
-free_used_maps:
+lbm_free_used_maps:
 	free_used_maps(prog->aux);
-free_prog:
+lbm_free_prog:
 	bpf_prog_uncharge_memlock(prog);
-free_prog_nouncharge:
+lbm_free_prog_nouncharge:
 	bpf_prog_free(prog);
 	return err;
 }

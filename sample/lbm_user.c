@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <linux/version.h>
 #include "libbpf.h"
 
 #define LOG_BUF_SIZE		4096
@@ -38,7 +39,7 @@ static inline int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
 }
 
 char bpf_log_buf[LOG_BUF_SIZE];
-char pathname[] = "./lbm_pin";
+char pathname[] = "/sys/fs/bpf/lbm_pin";	/* Should be updated accordingly */
 char license[] = "GPL";
 char bpf_name[] = "daveti";	/* Should be updated accrodingly */
 
@@ -68,6 +69,7 @@ int main(void)
 	attr.lbm.log_level = 1,	/* debug mode */
 	attr.lbm.log_size = LOG_BUF_SIZE,
 	attr.lbm.log_buf = ptr_to_u64(bpf_log_buf),
+	attr.lbm.kern_version = LINUX_VERSION_CODE;	/* needs to match the current kernel */
 	attr.lbm.subsys_idx = 0,	/* USB */
 	attr.lbm.call_dir = 0,	/* Ingress */
 	attr.lbm.pathname = ptr_to_u64(pathname),

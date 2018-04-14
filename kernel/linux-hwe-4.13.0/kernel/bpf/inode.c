@@ -22,6 +22,7 @@
 #include <linux/filter.h>
 #include <linux/bpf.h>
 #include <linux/bpf_trace.h>
+#include <linux/lbm.h>		/* daveti: for debug */
 
 enum bpf_type {
 	BPF_TYPE_UNSPEC	= 0,
@@ -269,19 +270,28 @@ int bpf_obj_pin_user(u32 ufd, const char __user *pathname)
 	void *raw;
 	int ret;
 
+	/* daveti: add more debugging code here */
 	pname = getname(pathname);
-	if (IS_ERR(pname))
+	if (IS_ERR(pname)) {
+		if (lbm_is_enabled() && lbm_is_bpf_debug_enabled())
+			pr_info("LBM: %s - getname failed\n", __func__);
 		return PTR_ERR(pname);
+	}
 
 	raw = bpf_fd_probe_obj(ufd, &type);
 	if (IS_ERR(raw)) {
 		ret = PTR_ERR(raw);
+		if (lbm_is_enabled() && lbm_is_bpf_debug_enabled())
+			pr_info("LBM: %s - bpf_fd_probe_obj failed\n", __func__);
 		goto out;
 	}
 
 	ret = bpf_obj_do_pin(pname, raw, type);
-	if (ret != 0)
+	if (ret != 0) {
+		if (lbm_is_enabled() && lbm_is_bpf_debug_enabled())
+			pr_info("LBM: %s - bpf_obj_do_pin failed\n", __func__);
 		bpf_any_put(raw, type);
+	}
 	if ((trace_bpf_obj_pin_prog_enabled() ||
 	     trace_bpf_obj_pin_map_enabled()) && !ret) {
 		if (type == BPF_TYPE_PROG)
