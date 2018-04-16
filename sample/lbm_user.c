@@ -47,7 +47,7 @@ char bpf_name[] = "daveti";	/* Should be updated accrodingly */
 /* Change the eBPF prog here */
 struct bpf_insn prog[] = {
 	BPF_CALL_FUNC(BPF_FUNC_lbm_usb_get_devnum),	/* get devnum */
-	BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 77, 2),		/* if devnum == 77: goto pc+2 */
+	BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 7, 2),		/* if devnum == 7: goto pc+2 */
 	BPF_MOV64_IMM(BPF_REG_0, 0),			/* r0 = 0 -> allow the pkt */
 	BPF_EXIT_INSN(),
 	BPF_MOV64_IMM(BPF_REG_0, 1),			/* r0 = 1  -> drop the pkt */

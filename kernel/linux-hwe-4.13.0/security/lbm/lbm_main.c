@@ -67,11 +67,11 @@ struct lbm_mod_info {
 
 static int lbm_mod_num;
 static int lbm_enable;
-static int lbm_main_debug = 1;
-static int lbm_bpf_debug = 1;
-static int lbm_usb_debug = 1;
-static int lbm_bluetooth_debug = 1;
-static int lbm_nfc_debug = 1;
+static int lbm_main_debug;
+static int lbm_bpf_debug;
+static int lbm_usb_debug;
+static int lbm_bluetooth_debug;
+static int lbm_nfc_debug;
 static int lbm_stats_enable;
 
 /* BPF map should be working so we literally do not need these */
@@ -205,8 +205,12 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 		rcu_read_lock();
 		hlist_for_each_entry_rcu(p, &lbm_bpf_ingress_db[subsys], entry) {
 			res = BPF_PROG_RUN(p->bpf, pkt);
-			if (res == LBM_RES_DROP)
+			if (res == LBM_RES_DROP) {
+				if (lbm_main_debug)
+					pr_info("LBM: bpf ingress [%s] drop pkt [%p]\n",
+						p->bpf_name, pkt);
 				break;
+			}
 		}
 		rcu_read_unlock();
 		if (res == LBM_RES_DROP)
@@ -216,8 +220,12 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 		rcu_read_lock();
 		hlist_for_each_entry_rcu(p, &lbm_mod_ingress_db[subsys], entry) {
 			res = p->lbm_hook(pkt);
-			if (res == LBM_RES_DROP)
+			if (res == LBM_RES_DROP) {
+				if (lbm_main_debug)
+					pr_info("LBM: mod ingress [%s] drop pkt [%p]\n",
+						p->mod->name, pkt);
 				break;
+			}
 		}
 		rcu_read_unlock();
 		if (res == LBM_RES_DROP)
@@ -230,8 +238,12 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 		rcu_read_lock();
 		hlist_for_each_entry_rcu(p, &lbm_bpf_egress_db[subsys], entry) {
 			res = BPF_PROG_RUN(p->bpf, pkt);
-			if (res == LBM_RES_DROP)
+			if (res == LBM_RES_DROP) {
+				if (lbm_main_debug)
+					pr_info("LBM: bpf egress [%s] drop pkt [%p]\n",
+						p->bpf_name, pkt);
 				break;
+			}
 		}
 		rcu_read_unlock();
 		if (res == LBM_RES_DROP)
@@ -241,8 +253,12 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 		rcu_read_lock();
 		hlist_for_each_entry_rcu(p, &lbm_mod_egress_db[subsys], entry) {
 			res = p->lbm_hook(pkt);
-			if (res == LBM_RES_DROP)
+			if (res == LBM_RES_DROP) {
+				if (lbm_main_debug)
+					pr_info("LBM: mod egress [%s] drop pkt [%p]\n",
+						p->mod->name, pkt);
 				break;
+			}
 		}
 		rcu_read_unlock();
 	} else {
