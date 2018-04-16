@@ -2,6 +2,7 @@
  * BPF verifier ops and helper calles for lbm usb
  * The BPF ctx is struct urb!
  * Apr 3, 2018
+ * daveti
  * root@davejingtian.org
  */
 #include <linux/types.h>
@@ -238,6 +239,162 @@ static const struct bpf_func_proto lbm_usb_transfer_buffer_load_bytes_proto = {
 	.arg4_type      = ARG_CONST_SIZE,
 };
 
+/* More helpers for struct usb_device_descriptor */
+BPF_CALL_1(lbm_usb_get_bcdUSB, struct urb *, urb)
+{
+	return urb->dev->descriptor.bcdUSB;
+}
+
+static const struct bpf_func_proto lbm_usb_get_bcdUSB_proto = {
+	.func           = lbm_usb_get_bcdUSB,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_bDeviceClass, struct urb *, urb)
+{
+	return urb->dev->descriptor.bDeviceClass;
+}
+
+static const struct bpf_func_proto lbm_usb_get_bDeviceClass_proto = {
+	.func           = lbm_usb_get_bDeviceClass,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_bDeviceSubClass, struct urb *, urb)
+{
+	return urb->dev->descriptor.bDeviceSubClass;
+}
+
+static const struct bpf_func_proto lbm_usb_get_bDeviceSubClass_proto = {
+	.func           = lbm_usb_get_bDeviceSubClass,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_bDeviceProtocol, struct urb *, urb)
+{
+	return urb->dev->descriptor.bDeviceProtocol;
+}
+
+static const struct bpf_func_proto lbm_usb_get_bDeviceProtocol_proto = {
+	.func           = lbm_usb_get_bDeviceProtocol,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_bMaxPacketSize0, struct urb *, urb)
+{
+	return urb->dev->descriptor.bMaxPacketSize0;
+}
+
+static const struct bpf_func_proto lbm_usb_get_bMaxPacketSize0_proto = {
+	.func           = lbm_usb_get_bMaxPacketSize0,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_idVendor, struct urb *, urb)
+{
+	return urb->dev->descriptor.idVendor;
+}
+
+static const struct bpf_func_proto lbm_usb_get_idVendor_proto = {
+	.func           = lbm_usb_get_idVendor,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_idProduct, struct urb *, urb)
+{
+	return urb->dev->descriptor.idProduct;
+}
+
+static const struct bpf_func_proto lbm_usb_get_idProduct_proto = {
+	.func           = lbm_usb_get_idProduct,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_bcdDevice, struct urb *, urb)
+{
+	return urb->dev->descriptor.bcdDevice;
+}
+
+static const struct bpf_func_proto lbm_usb_get_bcdDevice_proto = {
+	.func           = lbm_usb_get_bcdDevice,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_iManufacturer, struct urb *, urb)
+{
+	return urb->dev->descriptor.iManufacturer;
+}
+
+static const struct bpf_func_proto lbm_usb_get_iManufacturer_proto = {
+	.func           = lbm_usb_get_iManufacturer,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_iProduct, struct urb *, urb)
+{
+	return urb->dev->descriptor.iProduct;
+}
+
+static const struct bpf_func_proto lbm_usb_get_iProduct_proto = {
+	.func           = lbm_usb_get_iProduct,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_iSerialNumber, struct urb *, urb)
+{
+	return urb->dev->descriptor.iSerialNumber;
+}
+
+static const struct bpf_func_proto lbm_usb_get_iSerialNumber_proto = {
+	.func           = lbm_usb_get_iSerialNumber,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_usb_get_bNumConfigurations, struct urb *, urb)
+{
+	return urb->dev->descriptor.bNumConfigurations;
+}
+
+static const struct bpf_func_proto lbm_usb_get_bNumConfigurations_proto = {
+	.func           = lbm_usb_get_bNumConfigurations,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
 
 
 /* BPF verifier ops */
@@ -286,6 +443,31 @@ const struct bpf_func_proto *lbm_usb_func_proto(enum bpf_func_id func_id)
 		return &lbm_usb_setup_packet_load_bytes_proto;
 	case BPF_FUNC_lbm_usb_transfer_buffer_load_bytes:
 		return &lbm_usb_transfer_buffer_load_bytes_proto;
+	/* new helpers to access struct usb_device_descriptor */
+	case BPF_FUNC_lbm_usb_get_bcdUSB:
+		return &lbm_usb_get_bcdUSB_proto;
+	case BPF_FUNC_lbm_usb_get_bDeviceClass:
+		return &lbm_usb_get_bDeviceClass_proto;
+	case BPF_FUNC_lbm_usb_get_bDeviceSubClass:
+		return &lbm_usb_get_bDeviceSubClass_proto;
+	case BPF_FUNC_lbm_usb_get_bDeviceProtocol:
+		return &lbm_usb_get_bDeviceProtocol_proto;
+	case BPF_FUNC_lbm_usb_get_bMaxPacketSize0:
+		return &lbm_usb_get_bMaxPacketSize0_proto;
+	case BPF_FUNC_lbm_usb_get_idVendor:
+		return &lbm_usb_get_idVendor_proto;
+	case BPF_FUNC_lbm_usb_get_idProduct:
+		return &lbm_usb_get_idProduct_proto;
+	case BPF_FUNC_lbm_usb_get_bcdDevice:
+		return &lbm_usb_get_bcdDevice_proto;
+	case BPF_FUNC_lbm_usb_get_iManufacturer:
+		return &lbm_usb_get_iManufacturer_proto;
+	case BPF_FUNC_lbm_usb_get_iProduct:
+		return &lbm_usb_get_iProduct_proto;
+	case BPF_FUNC_lbm_usb_get_iSerialNumber:
+		return &lbm_usb_get_iSerialNumber_proto;
+	case BPF_FUNC_lbm_usb_get_bNumConfigurations:
+		return &lbm_usb_get_bNumConfigurations_proto;
 	default:
 		return NULL;
 	}
