@@ -1,9 +1,9 @@
 // A valid program must be an expression or the empty string
 start: expression?
 ?expression: test
-?test : logical_test
+?test : logical_or
 
-?logical_test : logical_and (OR logical_and)*
+?logical_or : logical_and (OR logical_and)*
 ?logical_and : comparison (AND comparison)*
 ?comparison : atom (cmp_op atom)*
 ?cmp_op : LT | GT | LTE | GTE | EQ | NE
