@@ -1136,7 +1136,14 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	err = bpf_obj_pin_user(err, u64_to_user_ptr(attr->lbm.pathname));
 	if (err < 0) {
 		pr_err("LBM: bpf_obj_pin_user failed with errno [%d]\n", err);
+		/*
 		goto lbm_free_used_maps;
+		FIXME: bpf_prog_release causes panic.
+		Workaround: return err directly.
+		This should be fine since the prog is destroyed
+		after the user space exits
+		*/
+		return err;
 	}
 
 	/* daveti: save the bpf prog into lbm */
