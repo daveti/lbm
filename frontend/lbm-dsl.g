@@ -40,7 +40,6 @@ NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 DEC_NUMBER: /[1-9]\d*l?/i
 HEX_NUMBER: /0x[\da-f]*l?/i
 
-%import common.NUMBER
 %import common.CNAME -> IDENTIFIER
 
 // Ignores comments, newlines, and any whitespace
