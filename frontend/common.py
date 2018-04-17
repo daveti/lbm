@@ -25,8 +25,21 @@ def parse_lbm_dsl(parser, expression):
         print(" " + " "*(e.column) + "^")
     except lark.common.UnexpectedToken as e:
         lines = expression.split("\n")
+        expected = e.expected
+        error_message = ""
 
-        print("error:%d:%d: unexpected token '%s'" % (e.line, e.column, str(e.token)))
+        # Make some error messages regarding parens a bit friendlier
+        if len(expected) == 1:
+            if expected[0] == "__RPAR":
+                error_message = "expected ')'"
+            elif expected[0] == "$END": # seen when extra RPAR
+                if e.token == ")":
+                    error_message = "extraneous ')' after condition"
+
+        if error_message == "":
+            error_message = "unexpected token '%s'" % str(e.token)
+
+        print("error:%d:%d: %s" % (e.line, e.column, error_message))
         print(" " + lines[e.line-1])
         print(" " + " "*(e.column) + "^"*(len(str(e.token))))
 
