@@ -26,7 +26,7 @@ def parse_lbm_dsl(parser, expression):
     except lark.common.UnexpectedToken as e:
         lines = expression.split("\n")
 
-        print("error:%d:%d: unexpected token '%s'" % (e.line, e.column, e.token))
+        print("error:%d:%d: unexpected token '%s'" % (e.line, e.column, str(e.token)))
         print(" " + lines[e.line-1])
         print(" " + " "*(e.column) + "^"*(len(str(e.token))))
 

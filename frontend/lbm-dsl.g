@@ -1,5 +1,5 @@
-// A valid program must be an expression
-start: expression
+// A valid program must be an expression or the empty string
+start: expression?
 expression: test
 
 ?test : logical_test

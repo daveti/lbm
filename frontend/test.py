@@ -27,6 +27,22 @@ usb.data.asd[1:10] == 10 *
 
 """
 usb.data.asd1:10] == 10
+""",
+
+"""
+# A beautiful comment
+// Another great comment
+// Pretty neat
+usb.data[1:10] == 10 && // do a thing
+usb.product == 0xf00d   // look for f00d
+""",
+
+# Completely blank
+"""""",
+
+# Completely blank + comments
+"""# Just comments
+// More comments
 """
 ]
 
