@@ -12,7 +12,7 @@ access : LBRACKET number COLON number RBRACKET
 ?attribute : "." IDENTIFIER
 number : DEC_NUMBER | HEX_NUMBER
 
-?struct : IDENTIFIER (attribute)* access?
+struct : IDENTIFIER (attribute)* access?
 ?atom : number
       | "-" number
       | struct
@@ -39,7 +39,7 @@ LTE : "<="
 COMMENT: /(\/\/|#)[^\n]*/
 NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 
-DEC_NUMBER: /[1-9]\d*l?/i
+DEC_NUMBER: /[0-9]\d*l?/i
 HEX_NUMBER: /0x[\da-f]*l?/i
 
 %import common.CNAME -> IDENTIFIER

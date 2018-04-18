@@ -4,6 +4,7 @@ from lark import Lark, Transformer, Tree
 from lark.tree import Visitor
 
 from common import *
+from ir import *
 
 # Post-order DFS
 def dfs(t):
@@ -20,9 +21,27 @@ def dfs(t):
             t.children = [Tree(t.data, [lhs, op, rhs])] + t.children[3:]
 
 class FlattenExpressions(Transformer):
-    def logical_or(self, args):
-        print "XXX", args
+    def atom(self, args):
         return args[0]
+
+class AtomToIntegral(Transformer):
+    def number(self, args):
+        if args[0].type == "DEC_NUMBER":
+            return int(args[0])
+        elif args[0].type == "HEX_NUMBER":
+            return int(args[0], 16)
+        else:
+            raise ValueError("Unknown number subtype")
+
+    def attribute(self, args):
+        return str(args[1])
+
+    # TODO: handle accesses
+    def struct(self, args):
+        if len(args) == 1:
+            return str(args[0])
+
+        return str(args[0]) + "." + args[1]
 
 class CheckNumbers(Visitor):
     def number(self, tree):
@@ -37,6 +56,9 @@ class FlattenTree(Visitor):
 def expressionize_tree(tree):
     for t in tree.iter_subtrees():
         if t.data == "comparison" or t.data == "logical_or" or t.data == "logical_and":
+            # Force an order of operation using parens when a logical operation
+            # has more than one pair of operands being used
+            # Make the code generation stage easier to reason about
             while len(t.children) > 3:
                 lhs = t.children[0]
                 op = t.children[1]
@@ -46,65 +68,45 @@ def expressionize_tree(tree):
 
 def lbm_tree_to_ir(tree):
     ir = []
-    temp = 0
     tree_value = {}
+    temp_count = 0
 
     for t in tree.iter_subtrees():
-        #print "XX", t
-
+        # Create temporaries for all tree roots
         if id(t) not in tree_value and t.data != "number":
-            tree_value[id(t)] = temp
-            temp += 1
+            tree_value[id(t)] = IRTemp(temp_count)
+            temp_count += 1
 
         if t.data == "comparison" or t.data == "logical_or" or t.data == "logical_and":
             lhs = t.children[0]
             op = t.children[1]
             rhs = t.children[2]
 
-            # Lookup the temporaries for previous expressions
+            # Lookup the temporary assignments for operands, if any
             if id(lhs) in tree_value:
                 lhs = tree_value[id(lhs)]
 
             if id(rhs) in tree_value:
                 rhs = tree_value[id(rhs)]
 
-            if isinstance(lhs, Tree) and lhs.data == "number":
-                lhs = lhs.children[0]
-            if isinstance(rhs, Tree) and rhs.data == "number":
-                rhs = rhs.children[0]
-
+            # lookup the temporary variable destination
             assignment = tree_value[id(t)]
 
-            ir.append([assignment, lhs, op, rhs])
-            #ops.append([assignment2, assignment, op, rhs])
+            # emit an assignment
+            ir.append(IRAssign(assignment, IRBinop(op.type, lhs, rhs)))
 
     return ir
 
 def lbm_print_ir(ir):
     for stmt_id, stmt in enumerate(ir):
-        destination = "t%d" % stmt[0]
-        op = "%s" % stmt[2].type
-        lhs = stmt[1]
-        rhs = stmt[3]
-
-        if isinstance(lhs, int):
-            lhs = "t%d" % lhs
-        else:
-            lhs = str(lhs)
-
-        if isinstance(rhs, int):
-            rhs = "t%d" % rhs
-        else:
-            rhs = str(rhs)
-
-        print "%d: %s <- binop(%-3s, %s, %s)" % (stmt_id, destination, op, lhs, rhs)
+        print "%d: %s" % (stmt_id, stmt)
 
 def main():
     parser = load_grammar("lbm-dsl.g")
 
-    #expression = "(((((usb >= - 0x3) || (usb == (usb == (50 && 10))) ||(usb == 1))))) && usb == 2"
+    expression = "(((((usb >= - 0x3) || (usb == (usb == (50 && 10))) ||(usb == 1))))) && usb == 2"
     #expression = "1 || 2 || 3"
-    expression = "(usb.productId == 0xf00d)"
+    #expression = "(usb.productId[0:1] == 0xf00d && usb.mfg == \"test\")"
 
     tree = parse_lbm_dsl(parser, expression)
 
@@ -120,17 +122,19 @@ def main():
     #dfs(tree)
     expressionize_tree(tree)
 
-    #tree = FlattenExpressions().transform(tree)
+    tree = FlattenExpressions().transform(tree)
+    tree = AtomToIntegral().transform(tree)
     #CheckNumbers().visit(tree)
     #FlattenTree().visit(tree)
 
-    print("AFTER: " + tree.pretty())
+    print("After: " + tree.pretty())
 
     ir = lbm_tree_to_ir(tree)
-    lbm_print_ir(ir)
 
     print("")
     print("IR")
+    lbm_print_ir(ir)
+
 
 
 if __name__ == "__main__":
