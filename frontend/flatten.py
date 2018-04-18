@@ -9,45 +9,42 @@ from common import *
 def dfs(t):
     for c in t.children:
         if isinstance(c, Tree):
-            print "GO", c
             dfs(c)
 
-    print "RET", t
+    if t.data == "comparison" or t.data == "logical_or" or t.data == "logical_and":
+        while len(t.children) > 3:
+            lhs = t.children[0]
+            op = t.children[1]
+            rhs = t.children[2]
 
-    if t.data == "comparison":
-        ops.append(t)
-    elif t.data == "logical_or":
-        ops.append(["OR"])
-    elif t.data == "logical_and":
-        ops.append(["AND"])
+            t.children = [Tree(t.data, [lhs, op, rhs])] + t.children[3:]
 
-def main():
-    parser = load_grammar("lbm-dsl.g")
+class FlattenExpressions(Transformer):
+    def logical_or(self, args):
+        print "XXX", args
+        return args[0]
 
-    expression = "(((((usb >= - 0x3) || (usb == (usb == (50 && 10))) ||(usb == 1))))) && usb == 2"
+class CheckNumbers(Visitor):
+    def number(self, tree):
+        print "WOW", tree.children[0].type
 
-    tree = parse_lbm_dsl(parser, expression)
+class FlattenTree(Visitor):
+    def comparison(self, tree):
+        print "WOW", tree
+    def logical_and(self, tree):
+        print "AND", tree
 
-    print("Raw Tree: " + str(tree))
-    print("")
+def expressionize_tree(tree):
+    for t in tree.iter_subtrees():
+        if t.data == "comparison" or t.data == "logical_or" or t.data == "logical_and":
+            while len(t.children) > 3:
+                lhs = t.children[0]
+                op = t.children[1]
+                rhs = t.children[2]
 
-    print("Before: " + tree.pretty())
-    print("")
+                t.children = [Tree(t.data, [lhs, op, rhs])] + t.children[3:]
 
-    class FlattenExpressions(Transformer):
-        def expression(self, args):
-            return args[0]
-
-    class CheckNumbers(Visitor):
-        def number(self, tree):
-            print "WOW", tree.children[0].type
-
-    class FlattenTree(Visitor):
-        def comparison(self, tree):
-            print "WOW", tree
-        def logical_and(self, tree):
-            print "AND", tree
-
+def lbm_tree_to_ir(tree):
     ir = []
     temp = 0
     tree_value = {}
@@ -60,10 +57,6 @@ def main():
             temp += 1
 
         if t.data == "comparison" or t.data == "logical_or" or t.data == "logical_and":
-            if len(t.children) == 5:
-                for i, c in enumerate(t.children):
-                    print i, c
-
             lhs = t.children[0]
             op = t.children[1]
             rhs = t.children[2]
@@ -85,12 +78,10 @@ def main():
             ir.append([assignment, lhs, op, rhs])
             #ops.append([assignment2, assignment, op, rhs])
 
-    #dfs(tree)
+    return ir
 
-    print("")
-    print("IR")
-
-    for stmt in ir:
+def lbm_print_ir(ir):
+    for stmt_id, stmt in enumerate(ir):
         destination = "t%d" % stmt[0]
         op = "%s" % stmt[2].type
         lhs = stmt[1]
@@ -106,16 +97,41 @@ def main():
         else:
             rhs = str(rhs)
 
-        print "%s <- binop(%-3s, %s, %s)" % (destination, op, lhs, rhs)
+        print "%d: %s <- binop(%-3s, %s, %s)" % (stmt_id, destination, op, lhs, rhs)
+
+def main():
+    parser = load_grammar("lbm-dsl.g")
+
+    #expression = "(((((usb >= - 0x3) || (usb == (usb == (50 && 10))) ||(usb == 1))))) && usb == 2"
+    #expression = "1 || 2 || 3"
+    expression = "(usb.productId == 0xf00d)"
+
+    tree = parse_lbm_dsl(parser, expression)
 
     if tree is None:
         return
+
+    print("Raw Tree: " + str(tree))
+    print("")
+
+    print("Before: " + tree.pretty())
+    print("")
+
+    #dfs(tree)
+    expressionize_tree(tree)
 
     #tree = FlattenExpressions().transform(tree)
     #CheckNumbers().visit(tree)
     #FlattenTree().visit(tree)
 
     print("AFTER: " + tree.pretty())
+
+    ir = lbm_tree_to_ir(tree)
+    lbm_print_ir(ir)
+
+    print("")
+    print("IR")
+
 
 if __name__ == "__main__":
     main()
