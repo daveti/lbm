@@ -119,6 +119,13 @@
 		.off   = 0,					\
 		.imm   = IMM })
 
+
+/*
+NOTE: BPF_LD_ABS and BPF_LB_IND only work for skb!
+Do NOT use them for lbm in general!
+Apr 18, 2018
+daveti
+*/
 #define BPF_LD_ABS(SIZE, IMM)					\
 	((struct bpf_insn) {					\
 		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_ABS,	\
@@ -134,6 +141,9 @@
 		.src_reg = SRC,					\
 		.off   = 0,					\
 		.imm   = IMM })
+/*
+NOTE: end
+*/
 
 #define BPF_LDX_MEM(SIZE, DST, SRC, OFF)			\
 	((struct bpf_insn) {					\
