@@ -9,12 +9,14 @@ start: expression?
 ?cmp_op : LT | GT | LTE | GTE | EQ | NE
 
 access : LBRACKET number COLON number RBRACKET
-attribute : DOT IDENTIFIER access?
+?attribute : "." IDENTIFIER
 number : DEC_NUMBER | HEX_NUMBER
 
+?struct : IDENTIFIER (attribute)* access?
 ?atom : number
-      | IDENTIFIER (attribute)*
       | "-" number
+      | struct
+      | STRING
       | "(" expression ")"
 
 // Tokens
@@ -41,6 +43,7 @@ DEC_NUMBER: /[1-9]\d*l?/i
 HEX_NUMBER: /0x[\da-f]*l?/i
 
 %import common.CNAME -> IDENTIFIER
+%import common.ESCAPED_STRING -> STRING
 
 // Ignores comments, newlines, and any whitespace
 %ignore NEWLINE

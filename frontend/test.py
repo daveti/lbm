@@ -30,6 +30,10 @@ usb.data.asd1:10] == 10
 """,
 
 """
+usb.devpath == "bus1"
+""",
+
+"""
 # A beautiful comment
 // Another great comment
 // Pretty neat
