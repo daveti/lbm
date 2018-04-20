@@ -33,7 +33,10 @@
 	FN(lbm_usb_get_iManufacturer),			\
 	FN(lbm_usb_get_iProduct),			\
 	FN(lbm_usb_get_iSerialNumber),			\
-	FN(lbm_usb_get_bNumConfigurations),	
+	FN(lbm_usb_get_bNumConfigurations),		\
+	FN(lbm_bluetooth_event_get_evt),		\
+	FN(lbm_bluetooth_event_get_plen),		\
+	FN(lbm_bluetooth_event_data_load_bytes),
 
 /* lbm defined user-space bpf contexts */
 struct __lbm_usb {
@@ -51,7 +54,8 @@ struct __lbm_usb {
 };
 
 struct __lbm_bluetooth {
-	__u32 todo;
+	__u32 pkt_type;		/* Note that this is the pkt_type from cb rather than skb */
+	__u32 pkt_len;
 };
 
 struct __lbm_nfc {

@@ -9,8 +9,69 @@
 #include <linux/bpf.h>
 #include <linux/filter.h>
 #include <uapi/linux/lbm_bpf.h>
+#include <net/bluetooth/hci.h>
 
 /* BPF helpers */
+BPF_CALL_1(lbm_bluetooth_event_get_evt, struct sk_buff *, skb)
+{
+	struct hci_event_hdr *hdr = (void *) skb->data;
+	return hdr->evt;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_event_get_evt_proto = {
+	.func           = lbm_bluetooth_event_get_evt,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_event_get_plen, struct sk_buff *, skb)
+{
+	struct hci_event_hdr *hdr = (void *) skb->data;
+	return hdr->plen;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_event_get_plen_proto = {
+	.func           = lbm_bluetooth_event_get_plen,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_4(lbm_bluetooth_event_data_load_bytes, struct sk_buff *, skb, u32, offset,
+		void *, to, u32, len)
+{
+	struct hci_event_hdr *hdr = (void *) skb->data;
+	int plen = hdr->plen;
+
+	if ((unlikely(offset > plen)) ||
+		(unlikely(len > plen)) ||
+		(unlikely(offset+len > plen)))
+		goto event_data_load_err;
+
+	memcpy(to, (void *)skb->data+HCI_EVENT_HDR_SIZE+offset, len);
+	return 0;
+
+event_data_load_err:
+	memset(to, 0, len);
+	return -EFAULT;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_event_data_load_bytes_proto = {
+	.func           = lbm_bluetooth_event_data_load_bytes,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
+	.arg4_type      = ARG_CONST_SIZE,
+};
+
+
+
+
 
 
 /* BPF verifier ops */
@@ -49,6 +110,14 @@ u32 lbm_bluetooth_convert_ctx_access(enum bpf_access_type type,
 	struct bpf_insn *insn = insn_buf;
 
 	switch (si->off) {
+	case offsetof(struct __lbm_bluetooth, pkt_type):
+		*insn++ = BPF_LDX_MEM(BPF_B, si->dst_reg, si->src_reg,
+				bpf_target_off(struct sk_buff, cb, 1, target_size));
+		break;
+	case offsetof(struct __lbm_usb, pkt_len):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct sk_buff, len, 4, target_size));
+		break;
 	default:
 		break;
 	}

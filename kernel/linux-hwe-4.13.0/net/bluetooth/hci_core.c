@@ -30,6 +30,7 @@
 #include <linux/rfkill.h>
 #include <linux/debugfs.h>
 #include <linux/crypto.h>
+#include <linux/lbm.h>		/* daveti: for lbm */
 #include <asm/unaligned.h>
 
 #include <net/bluetooth/bluetooth.h>
@@ -3294,6 +3295,13 @@ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
 	/* Time stamp */
 	__net_timestamp(skb);
 
+	/* daveti: LBM */
+	if (lbm_is_enabled() && lbm_is_bluetooth_debug_enabled())
+		pr_info("LBM: hdev %s recv pkt/skb [%p], type [%d], len [%d]\n",
+			hdev->name, skb,
+			hci_skb_pkt_type(skb),
+			skb->len);
+
 	skb_queue_tail(&hdev->rx_q, skb);
 	queue_work(hdev->workqueue, &hdev->rx_work);
 
@@ -3309,6 +3317,13 @@ int hci_recv_diag(struct hci_dev *hdev, struct sk_buff *skb)
 
 	/* Time stamp */
 	__net_timestamp(skb);
+
+	/* daveti: LBM */
+	if (lbm_is_enabled() && lbm_is_bluetooth_debug_enabled())
+		pr_info("LBM: hdev %s recv diag pkt/skb [%p], type [%d], len [%d]\n",
+			hdev->name, skb,
+			hci_skb_pkt_type(skb),
+			skb->len);
 
 	skb_queue_tail(&hdev->rx_q, skb);
 	queue_work(hdev->workqueue, &hdev->rx_work);
@@ -3382,6 +3397,13 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 		/* Send copy to the sockets */
 		hci_send_to_sock(hdev, skb);
 	}
+
+	/* daveti: LBM */
+	if (lbm_is_enabled() && lbm_is_bluetooth_debug_enabled())
+		pr_info("LBM: hdev %s send pkt/skb [%p], type [%d], len [%d]\n",
+			hdev->name, skb,
+			hci_skb_pkt_type(skb),
+			skb->len);
 
 	/* Get rid of skb owner, prior to sending to the driver. */
 	skb_orphan(skb);
