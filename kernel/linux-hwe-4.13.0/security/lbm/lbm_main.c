@@ -71,6 +71,7 @@ static int lbm_main_debug;
 static int lbm_bpf_debug;
 static int lbm_usb_debug;
 static int lbm_bluetooth_debug;
+static int lbm_bluetooth_l2cap_debug;
 static int lbm_nfc_debug;
 static int lbm_stats_enable;
 
@@ -136,6 +137,7 @@ static inline int check_subsys(int idx)
 	switch (idx) {
 	case LBM_SUBSYS_INDEX_USB:
 	case LBM_SUBSYS_INDEX_BLUETOOTH:
+	case LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP:
 	case LBM_SUBSYS_INDEX_NFC:
 		return 0;
 	default:
@@ -161,6 +163,11 @@ inline int lbm_is_usb_debug_enabled(void)
 inline int lbm_is_bluetooth_debug_enabled(void)
 {
 	return lbm_bluetooth_debug;
+}
+
+inline int lbm_is_bluetooth_l2cap_debug_enabled(void)
+{
+	return lbm_bluetooth_l2cap_debug;
 }
 
 inline int lbm_is_nfc_debug_enabled(void)
@@ -290,6 +297,9 @@ int lbm_find_prog_sub_type(struct bpf_prog *prog, int subsys, int dir)
 		break;
 	case LBM_SUBSYS_INDEX_BLUETOOTH:
 		ops = &lbm_bluetooth_prog_ops;
+		break;
+	case LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP:
+		ops = &lbm_bluetooth_l2cap_prog_ops;
 		break;
 	case LBM_SUBSYS_INDEX_NFC:
 		ops = &lbm_nfc_prog_ops;
@@ -616,11 +626,12 @@ static ssize_t lbm_sysfs_debug_read(struct file *filp,
 	ssize_t len;
 
 	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "main:%d,bpf:%d,usb:%d,"
-			"bluetooth:%d,nfc:%d\n",
+			"bluetooth:%d,bluetooth-l2cap:%d,nfc:%d\n",
 			lbm_main_debug,
 			lbm_bpf_debug,
 			lbm_usb_debug,
 			lbm_bluetooth_debug,
+			lbm_bluetooth_l2cap_debug,
 			lbm_nfc_debug);
 	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
 }
@@ -656,6 +667,8 @@ static ssize_t lbm_sysfs_debug_write(struct file *file, const char __user *buf,
 			res = update_boolean_value(p+4, &lbm_usb_debug);
 		else if (strncmp(p, "bluetooth:", 10) == 0)
 			res = update_boolean_value(p+10, &lbm_bluetooth_debug);
+		else if (strncmp(p, "bluetooth-l2cap:", 16) == 0)
+			res = update_boolean_value(p+16, &lbm_bluetooth_l2cap_debug);
 		else if (strncmp(p, "nfc:", 4) == 0)
 			res = update_boolean_value(p+4, &lbm_nfc_debug);
 		else {
@@ -722,6 +735,7 @@ static ssize_t lbm_sysfs_stats_read(struct file *filp,
 	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "enabled: %d\n"
 			"usb: %lu %lu %lu %lu\n"
 			"bluetooth: %lu %lu %lu %lu\n"
+			"bluetooth l2cap: %lu %lu %lu %lu\n"
 			"nfc: %lu %lu %lu %lu\n",
 			lbm_stats_enable,
 			lbm_stats_db[LBM_SUBSYS_INDEX_USB][LBM_STAT_TX_CNT],
@@ -732,6 +746,10 @@ static ssize_t lbm_sysfs_stats_read(struct file *filp,
 			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_STAT_TX_CNT_FILTERED],
 			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_STAT_RX_CNT],
 			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_STAT_RX_CNT_FILTERED],
+			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_STAT_TX_CNT],
+			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_STAT_TX_CNT_FILTERED],
+			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_STAT_RX_CNT],
+			lbm_stats_db[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_STAT_RX_CNT_FILTERED],
 			lbm_stats_db[LBM_SUBSYS_INDEX_NFC][LBM_STAT_TX_CNT],
 			lbm_stats_db[LBM_SUBSYS_INDEX_NFC][LBM_STAT_TX_CNT_FILTERED],
 			lbm_stats_db[LBM_SUBSYS_INDEX_NFC][LBM_STAT_RX_CNT],
@@ -778,12 +796,15 @@ static ssize_t lbm_sysfs_perf_read(struct file *filp,
 	char tmp_buf[LBM_TMP_BUF_LEN];
 	ssize_t len;
 
-	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "enabled:%d, usb:%d|%d, bluetooth:%d|%d, nfc:%d|%d\n",
+	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "enabled:%d, usb:%d|%d, bluetooth:%d|%d, "
+			"bluetooth-l2cap: %d|%d, nfc:%d|%d\n",
 			lbm_stats_enable,
 			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0],
 			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1],
 			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][0],
 			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][1],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][0],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][1],
 			lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][0],
 			lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][1]);
 	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);

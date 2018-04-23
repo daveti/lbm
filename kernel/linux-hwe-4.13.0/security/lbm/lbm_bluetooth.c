@@ -70,6 +70,32 @@ static const struct bpf_func_proto lbm_bluetooth_event_data_load_bytes_proto = {
 };
 
 
+BPF_CALL_1(lbm_bluetooth_acl_get_handle, struct sk_buff *, skb)
+{
+	struct hci_acl_hdr *hdr = (void *) skb->data;
+	return __le16_to_cpu(hdr->handle);
+}
+
+static const struct bpf_func_proto lbm_bluetooth_acl_get_handle_proto = {
+	.func           = lbm_bluetooth_acl_get_handle,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_acl_get_dlen, struct sk_buff *, skb)
+{
+	struct hci_acl_hdr *hdr = (void *) skb->data;
+	return __le16_to_cpu(hdr->dlen);
+}
+
+static const struct bpf_func_proto lbm_bluetooth_acl_get_dlen_proto = {
+	.func           = lbm_bluetooth_acl_get_dlen,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
 
 
 

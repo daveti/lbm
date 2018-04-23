@@ -12,7 +12,8 @@
 #define LBM_BPF_NAME_LEN		32
 #define LBM_SUBSYS_INDEX_USB		0
 #define LBM_SUBSYS_INDEX_BLUETOOTH	1
-#define LBM_SUBSYS_INDEX_NFC		2
+#define LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP	2	/* daveti: we overload subsys with l2cap */
+#define LBM_SUBSYS_INDEX_NFC		3
 #define LBM_CALL_DIR_INGRESS		0
 #define LBM_CALL_DIR_EGRESS		1
 #define LBM_CALL_DIR_INEGRESS		2
@@ -32,6 +33,7 @@ int lbm_is_enabled(void);
 int lbm_is_bpf_debug_enabled(void);
 int lbm_is_usb_debug_enabled(void);
 int lbm_is_bluetooth_debug_enabled(void);
+int lbm_is_bluetooth_l2cap_debug_enabled(void);
 int lbm_is_nfc_debug_enabled(void);
 
 int lbm_filter_pkt(int subsys, int dir, void *pkt);

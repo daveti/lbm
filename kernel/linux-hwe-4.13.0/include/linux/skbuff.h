@@ -751,6 +751,15 @@ struct sk_buff {
 	__u16			network_header;
 	__u16			mac_header;
 
+#ifdef CONFIG_LBM
+	struct {
+		void		*hdev;	/* daveti: for bt backtracking */
+		void		*conn;	/* daveti: for bt backtracking */
+		unsigned char	*data;	/* daveti: for bt l2cap tx reassembling */
+		unsigned int	len;	/* daveti: length of the data */
+	} lbm_bt;
+#endif
+
 	/* private: */
 	__u32			headers_end[0];
 	/* public: */

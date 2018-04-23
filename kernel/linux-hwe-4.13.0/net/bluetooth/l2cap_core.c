@@ -33,6 +33,7 @@
 #include <linux/debugfs.h>
 #include <linux/crc16.h>
 #include <linux/filter.h>
+#include <linux/lbm.h>		/* daveti: for lbm */
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
@@ -6924,11 +6925,24 @@ static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
 	struct hci_conn *hcon = conn->hcon;
 	u16 cid, len;
 	__le16 psm;
+	int ret;
 
 	if (hcon->state != BT_CONNECTED) {
 		BT_DBG("queueing pending rx skb");
 		skb_queue_tail(&conn->pending_rx, skb);
 		return;
+	}
+
+	/* daveti: for lbm l2cap RX filtering */
+	if (lbm_is_enabled()) {
+		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP,
+				LBM_CALL_DIR_INGRESS, (void *)skb);
+		if (ret == LBM_RES_DROP) {
+			if (lbm_is_bluetooth_l2cap_debug_enabled())
+				pr_info("LBM: Bluetooth l2cap pkt [%p] for conn [%p] is dropped\n",
+					skb, conn);
+			return;
+		}
 	}
 
 	skb_pull(skb, L2CAP_HDR_SIZE);

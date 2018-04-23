@@ -3276,6 +3276,8 @@ EXPORT_SYMBOL(hci_reset_dev);
 /* Receive frame from HCI drivers */
 int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
 {
+	int ret;
+
 	if (!hdev || (!test_bit(HCI_UP, &hdev->flags)
 		      && !test_bit(HCI_INIT, &hdev->flags))) {
 		kfree_skb(skb);
@@ -3301,6 +3303,16 @@ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
 			hdev->name, skb,
 			hci_skb_pkt_type(skb),
 			skb->len);
+	if (lbm_is_enabled()) {
+		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH,
+				LBM_CALL_DIR_INGRESS, (void *)skb);
+		if (ret == LBM_RES_DROP) {
+			if (lbm_is_bluetooth_debug_enabled())
+				pr_info("LBM: bluetooth hci rx pkt [%p] dropped\n", skb);
+			kfree_skb(skb);
+			return -EINVAL;
+		}
+	}
 
 	skb_queue_tail(&hdev->rx_q, skb);
 	queue_work(hdev->workqueue, &hdev->rx_work);
@@ -3312,6 +3324,8 @@ EXPORT_SYMBOL(hci_recv_frame);
 /* Receive diagnostic message from HCI drivers */
 int hci_recv_diag(struct hci_dev *hdev, struct sk_buff *skb)
 {
+	int ret;
+
 	/* Mark as diagnostic packet */
 	hci_skb_pkt_type(skb) = HCI_DIAG_PKT;
 
@@ -3324,6 +3338,16 @@ int hci_recv_diag(struct hci_dev *hdev, struct sk_buff *skb)
 			hdev->name, skb,
 			hci_skb_pkt_type(skb),
 			skb->len);
+	if (lbm_is_enabled()) {
+		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH,
+				LBM_CALL_DIR_INGRESS, (void *)skb);
+		if (ret == LBM_RES_DROP) {
+			if (lbm_is_bluetooth_debug_enabled())
+				pr_info("LBM: bluetooth hci rx diag pkt [%p] is dropped\n", skb);
+			kfree_skb(skb);
+			return -EINVAL;
+		}
+	}
 
 	skb_queue_tail(&hdev->rx_q, skb);
 	queue_work(hdev->workqueue, &hdev->rx_work);
@@ -3404,6 +3428,16 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 			hdev->name, skb,
 			hci_skb_pkt_type(skb),
 			skb->len);
+	if (lbm_is_enabled()) {
+		err = lbm_filter_packet(LBM_SUBSYS_INDEX_BLUETOOTH,
+				LBM_CALL_DIR_EGRESS, (void *)skb);
+		if (err == LBM_RES_DROP) {
+			if (lbm_is_bluetooth_debug_enabled())
+				pr_info("LBM: bluetooth hci tx pkt [%p] is dropped\n", skb);
+			kfree_sbk(skb);
+			return;
+		}
+	}
 
 	/* Get rid of skb owner, prior to sending to the driver. */
 	skb_orphan(skb);
@@ -3560,8 +3594,25 @@ static void hci_queue_acl(struct hci_chan *chan, struct sk_buff_head *queue,
 void hci_send_acl(struct hci_chan *chan, struct sk_buff *skb, __u16 flags)
 {
 	struct hci_dev *hdev = chan->conn->hdev;
+	int ret;
 
 	BT_DBG("%s chan %p flags 0x%4.4x", hdev->name, chan, flags);
+
+	/* daveti: for LBM l2cap TX filtering */
+	if (lbm_is_enabled()) {
+		/* Reassemble the pkt if needed */
+
+		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP,
+				LBM_CALL_DIR_EGRESS, (void *)skb);
+		if (ret == LBM_RES_DROP) {
+			if (lbm_is_bluetooth_l2cap_debug_enabled())
+				pr_info("LBM: bluetooth l2cap tx pkt [%p] is dropped\n", skb);
+			if (skb->lbm_bt.len)
+				kfree(skb->lbm_bt.data);
+			kfree_skb(skb);
+			return;
+		}
+	}
 
 	hci_queue_acl(chan, &chan->data_q, skb, flags);
 

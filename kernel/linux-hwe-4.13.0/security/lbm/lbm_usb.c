@@ -242,7 +242,7 @@ static const struct bpf_func_proto lbm_usb_transfer_buffer_load_bytes_proto = {
 /* More helpers for struct usb_device_descriptor */
 BPF_CALL_1(lbm_usb_get_bcdUSB, struct urb *, urb)
 {
-	return urb->dev->descriptor.bcdUSB;
+	return __le16_to_cpu(urb->dev->descriptor.bcdUSB);
 }
 
 static const struct bpf_func_proto lbm_usb_get_bcdUSB_proto = {
@@ -307,7 +307,7 @@ static const struct bpf_func_proto lbm_usb_get_bMaxPacketSize0_proto = {
 
 BPF_CALL_1(lbm_usb_get_idVendor, struct urb *, urb)
 {
-	return urb->dev->descriptor.idVendor;
+	return __le16_to_cpu(urb->dev->descriptor.idVendor);
 }
 
 static const struct bpf_func_proto lbm_usb_get_idVendor_proto = {
@@ -320,7 +320,7 @@ static const struct bpf_func_proto lbm_usb_get_idVendor_proto = {
 
 BPF_CALL_1(lbm_usb_get_idProduct, struct urb *, urb)
 {
-	return urb->dev->descriptor.idProduct;
+	return __le16_to_cpu(urb->dev->descriptor.idProduct);
 }
 
 static const struct bpf_func_proto lbm_usb_get_idProduct_proto = {
@@ -333,7 +333,7 @@ static const struct bpf_func_proto lbm_usb_get_idProduct_proto = {
 
 BPF_CALL_1(lbm_usb_get_bcdDevice, struct urb *, urb)
 {
-	return urb->dev->descriptor.bcdDevice;
+	return __le16_to_cpu(urb->dev->descriptor.bcdDevice);
 }
 
 static const struct bpf_func_proto lbm_usb_get_bcdDevice_proto = {
