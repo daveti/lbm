@@ -170,4 +170,52 @@ class CBackend(Backend):
         return self.code
 
     def assemble(self, program):
-        pass
+        # pc, label, insn
+        new_program = []
+
+        # a map of labels to PC values
+        labels = {}
+        pc = 0
+
+        # Pass 1: clean up instructions and label PC values
+        for idx, insn in enumerate(program):
+            insn[0] = insn[0].strip().rstrip()
+            insn[1] = insn[1].strip().rstrip()
+
+            # blank line
+            if len(insn[0]) == 0 and len(insn[1]) == 0:
+                continue
+
+            # We have a label
+            if len(insn[0]) > 0:
+                if insn[0] in labels:
+                    raise ValueError("Duplicate label found during assembly: %s" % insn[0])
+
+                labels[insn[0]] = pc
+
+            # We have an instruction
+            if len(insn[1]) > 0:
+                new_program.append(insn[1])
+                pc += 1
+
+        print labels
+
+        # Pass 2: replace labels with PC-relative values
+        for pc in xrange(len(new_program)):
+            insn = new_program[pc]
+
+            # O(n^2) label replace
+            for label, label_pc in labels.iteritems():
+                pos = insn.find(label)
+
+                if pos == -1:
+                    continue
+
+                delta = label_pc - pc
+                
+                if delta <= 0:
+                    raise ValueError("PC-relative branch is negative or zero: address %d" % pc)
+
+                new_program[pc] = insn.replace(label, str(delta))
+
+        return new_program

@@ -181,7 +181,13 @@ def main():
     print("generating code")
     backend = CBackend(ir, {})
     code = backend.compile()
-    print pprint.pprint(code)
+    pprint.pprint(code)
+
+    program = backend.assemble(code)
+
+    # Print the program with replaced labels
+    for pc, insn in enumerate(program):
+        print "%s," % (insn)
 
 
 if __name__ == "__main__":
