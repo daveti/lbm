@@ -2990,12 +2990,17 @@ static inline int l2cap_get_conf_opt(void **ptr, int *type, int *olen,
 
 static void l2cap_add_conf_opt(void **ptr, u8 type, u8 len, unsigned long val, size_t size)
 {
+	/* daveti: size_t size was propagated from l2cap_parse_conf_rsp */
+
 	struct l2cap_conf_opt *opt = *ptr;
 
 	BT_DBG("type 0x%2.2x len %u val 0x%lx", type, len, val);
 
+	/* daveti: the final fix for stack overflow
 	if (size < L2CAP_CONF_OPT_SIZE + len)
 		return;
+	*/
+	pr_err("LBM: Blueborne vulnerability is recovered for evaluation\n");
 
 	opt->type = type;
 	opt->len  = len;
@@ -3537,11 +3542,13 @@ static int l2cap_parse_conf_rsp(struct l2cap_chan *chan, void *rsp, int len,
 {
 	struct l2cap_conf_req *req = data;
 	void *ptr = req->data;
-	void *endptr = data + size;
+	void *endptr = data + size;	/* daveti: blueborne fix */
 	int type, olen;
 	unsigned long val;
 	struct l2cap_conf_rfc rfc = { .mode = L2CAP_MODE_BASIC };
 	struct l2cap_conf_efs efs;
+
+	/* daveti: size_t size was added to fix the blueborne vulnerability */
 
 	BT_DBG("chan %p, rsp %p, len %d, req %p", chan, rsp, len, data);
 
@@ -4190,6 +4197,7 @@ static inline int l2cap_config_rsp(struct l2cap_conn *conn,
 		if (test_bit(CONF_LOC_CONF_PEND, &chan->conf_state)) {
 			char buf[64];
 
+			/* daveti: blueborne attack point */
 			len = l2cap_parse_conf_rsp(chan, rsp->data, len,
 						   buf, sizeof(buf), &result);
 			if (len < 0) {
