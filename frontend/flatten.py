@@ -6,6 +6,7 @@ from lark.tree import Visitor
 from common import *
 from ir import *
 from backend import *
+from symbol import *
 
 # Post-order DFS
 def dfs(t):
@@ -37,12 +38,20 @@ class AtomToIntegral(Transformer):
     def attribute(self, args):
         return str(args[1])
 
-    # TODO: handle accesses
     def struct(self, args):
-        if len(args) == 1:
-            return str(args[0])
+        identifier = ""
 
-        return str(args[0]) + "." + args[1]
+        if len(args) == 1:
+            identifier = str(args[0])
+        else:
+            identifier = str(args[0]) + "." + args[1]
+
+        symbol = lookup_symbol(identifier)
+
+        if symbol is None:
+            raise ValueError("Unknown symbol: " + identifier)
+
+        return symbol
 
 class CheckNumbers(Visitor):
     def number(self, tree):
@@ -67,6 +76,8 @@ def expressionize_tree(tree):
 
                 t.children = [Tree(t.data, [lhs, op, rhs])] + t.children[3:]
 
+
+
 def lbm_tree_to_ir(tree):
     ir = []
     tree_value = {}
@@ -82,6 +93,32 @@ def lbm_tree_to_ir(tree):
             lhs = t.children[0]
             op = t.children[1]
             rhs = t.children[2]
+
+            if isinstance(lhs, Symbol):
+                if isinstance(lhs, SymbolContext):
+                    lhs_tmp = IRTemp(temp_count)
+                    temp_count += 1
+
+                    ir.append(IRAssign(lhs_tmp, IRLoadCtx(lhs.offset)))
+                    lhs = lhs_tmp
+                elif isinstance(lhs, SymbolHelper):
+                    lhs_tmp = IRTemp(temp_count)
+                    temp_count += 1
+
+                    ir.append(IRAssign(lhs_tmp, IRCall(lhs.name)))
+                    lhs = lhs_tmp
+                else:
+                    raise ValueError("Unsupported symbol type: %s" % type(lhs))
+
+            if isinstance(rhs, Symbol):
+                if isinstance(rhs, SymbolContext):
+                    rhs_tmp = IRTemp(temp_count)
+                    temp_count += 1
+
+                    ir.append(IRAssign(rhs_tmp, IRLoadCtx(rhs.offset)))
+                    rhs = rhs_tmp
+                else:
+                    raise ValueError("Unsupported symbol type: %s" % type(rhs))
 
             # Lookup the temporary assignments for operands, if any
             if id(lhs) in tree_value:
@@ -105,7 +142,9 @@ def lbm_print_ir(ir):
 def main():
     parser = load_grammar("lbm-dsl.g")
 
-    expression = "usb.iProduct == 0xf00d && usb.iManufacturer == 1234 && usb.iProduct == 5 && usb.iManufacturer == 0xffffffff && usb.iManufacturer == 0xffffffff"
+    #expression = "usb.idProduct == 0xf00d && usb.idVendor == 1234 && usb.actual_length == 33 "
+    expression = "usb.idProduct == 0xf00d && usb.idVendor == 1234 && usb.idProduct == 5 && usb.idVendor == 0xffffffff && usb.idVendor == 0xffffffff"
+    #expression = "40 == usb.actual_length || usb.pipe == 1 && usb.status == 50 || usb.transfer_flags == 0|| usb.transfer_flags == 0&& usb.transfer_flags == 0&& usb.transfer_flags == 0"
     #expression = "(((((usb >= - 0x3) || (usb == (usb == (50 && 10))) ||(usb == 1))))) && usb == 2"
     #expression = "1 || 2 || 3"
     #expression = "(usb.productId[0:1] == 0xf00d && usb.mfg == \"test\")"

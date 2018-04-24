@@ -59,17 +59,19 @@ class CBackend(Backend):
         return "L%d" % self.label_count
 
     def compile(self):
-        reg = RegisterAllocator(["BPF_REG_6", "BPF_REG_7", "BPF_REG_8", "BPF_REG_9"])
+        reg = RegisterAllocator(["BPF_REG_6", "BPF_REG_7", "BPF_REG_8"])
         temp_map = {}
 
         def islive(variable, ir):
             for stmt in ir:
                 if stmt.dst == variable:
                     return stmt
-                if stmt.src.lhs == variable:
-                    return stmt
-                if stmt.src.rhs == variable:
-                    return stmt
+
+                if isinstance(stmt.src, IRBinop):
+                    if stmt.src.lhs == variable:
+                        return stmt
+                    if stmt.src.rhs == variable:
+                        return stmt
 
             return None
 
@@ -105,6 +107,9 @@ class CBackend(Backend):
         # label (optional), insn
         self.EMIT("LSTART", "")
 
+        # Save the context somewhere safe
+        self.EMIT("", "BPF_MOV64_REG(BPF_REG_9, BPF_REG_1)")
+
         for stmt in self.ir:
             print stmt
             dst = stmt.dst
@@ -115,19 +120,15 @@ class CBackend(Backend):
                 op = src.op
 
                 if op == "EQ":
-                    if isinstance(src.lhs, str):
-                        if src.lhs == "usb.iProduct":
-                            self.EMIT("", "BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, 20)")
-                        elif src.lhs == "usb.iManufacturer":
-                            self.EMIT("", "BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, 30)")
-                        else:
-                            raise ValueError("Unsupported object: " + src.lhs)
+                    lhs = src.lhs
+                    rhs = src.rhs
 
-                        imm = src.rhs
+                    if isinstance(rhs, int):
+                        tmp = temp_map[lhs]
                         label = self.new_label()
 
                         self.EMIT("", "BPF_MOV64_IMM(%s, 1)" % (tmp_ref))
-                        self.EMIT("", "BPF_JMP_IMM(BPF_JEQ, BPF_REG_2, %d, %s)" % (imm, label))
+                        self.EMIT("", "BPF_JMP_IMM(BPF_JEQ, %s, %d, %s)" % (tmp, rhs, label))
                         self.EMIT("", "BPF_MOV64_IMM(%s, 0)" % (tmp_ref))
                         self.EMIT(label, "")
                     else:
@@ -152,8 +153,17 @@ class CBackend(Backend):
                     self.EMIT("", "BPF_MOV64_REG(%s, %s)" % (tmp_ref, lhs_temp))
                 else:
                     raise ValueError("Unsupported binop: " + op)
+            elif isinstance(src, IRLoadCtx):
+                # This makes the assumption that BPF_REG_9 stores the context
+                self.EMIT("", "BPF_LDX_MEM(BPF_W, %s, BPF_REG_9, %d)" % (tmp_ref, src.offset))
+            elif isinstance(src, IRCall):
+                # This makes the assumption that BPF_REG_9 stores the context
+                # Restore the context for the function call
+                self.EMIT("", "BPF_MOV64_REG(BPF_REG_1, BPF_REG_9)")
+                self.EMIT("", "BPF_CALL_FUNC(BPF_FUNC_%s)" % (src.name))
+                self.EMIT("", "BPF_MOV64_REG(%s, BPF_REG_0)" % (tmp_ref))
             else:
-                raise ValueError("Unsupported IR: " + src);
+                raise ValueError("Unsupported IR: " + str(type(src)));
 
         self.EMIT("LEND", "")
 
