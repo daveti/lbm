@@ -2991,16 +2991,15 @@ static inline int l2cap_get_conf_opt(void **ptr, int *type, int *olen,
 static void l2cap_add_conf_opt(void **ptr, u8 type, u8 len, unsigned long val, size_t size)
 {
 	/* daveti: size_t size was propagated from l2cap_parse_conf_rsp */
-
 	struct l2cap_conf_opt *opt = *ptr;
 
 	BT_DBG("type 0x%2.2x len %u val 0x%lx", type, len, val);
 
-	/* daveti: the final fix for stack overflow
-	if (size < L2CAP_CONF_OPT_SIZE + len)
+	if (size < L2CAP_CONF_OPT_SIZE + len) {
+		/* daveti: just report the potential attack */
+		pr_err("LBM: Blueborne attack is detected\n");
 		return;
-	*/
-	pr_err("LBM: Blueborne vulnerability is recovered for evaluation\n");
+	}
 
 	opt->type = type;
 	opt->len  = len;
@@ -3549,7 +3548,6 @@ static int l2cap_parse_conf_rsp(struct l2cap_chan *chan, void *rsp, int len,
 	struct l2cap_conf_efs efs;
 
 	/* daveti: size_t size was added to fix the blueborne vulnerability */
-
 	BT_DBG("chan %p, rsp %p, len %d, req %p", chan, rsp, len, data);
 
 	while (len >= L2CAP_CONF_OPT_SIZE) {
@@ -6943,12 +6941,14 @@ static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
 
 	/* daveti: for lbm l2cap RX filtering */
 	if (lbm_is_enabled()) {
+		skb->lbm_bt.conn = (void *)conn;
 		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP,
 				LBM_CALL_DIR_INGRESS, (void *)skb);
 		if (ret == LBM_RES_DROP) {
 			if (lbm_is_bluetooth_l2cap_debug_enabled())
 				pr_info("LBM: Bluetooth l2cap pkt [%p] for conn [%p] is dropped\n",
 					skb, conn);
+			kfree_skb(skb);
 			return;
 		}
 	}

@@ -3304,6 +3304,7 @@ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
 			hci_skb_pkt_type(skb),
 			skb->len);
 	if (lbm_is_enabled()) {
+		skb->lbm_bt.hdev = (void *)hdev;
 		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH,
 				LBM_CALL_DIR_INGRESS, (void *)skb);
 		if (ret == LBM_RES_DROP) {
@@ -3339,6 +3340,7 @@ int hci_recv_diag(struct hci_dev *hdev, struct sk_buff *skb)
 			hci_skb_pkt_type(skb),
 			skb->len);
 	if (lbm_is_enabled()) {
+		skb->lbm_bt = (void *)hdev;
 		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH,
 				LBM_CALL_DIR_INGRESS, (void *)skb);
 		if (ret == LBM_RES_DROP) {
@@ -3429,6 +3431,7 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 			hci_skb_pkt_type(skb),
 			skb->len);
 	if (lbm_is_enabled()) {
+		skb->lbm_bt.hdev = (void *)hdev;
 		err = lbm_filter_packet(LBM_SUBSYS_INDEX_BLUETOOTH,
 				LBM_CALL_DIR_EGRESS, (void *)skb);
 		if (err == LBM_RES_DROP) {
@@ -3601,17 +3604,24 @@ void hci_send_acl(struct hci_chan *chan, struct sk_buff *skb, __u16 flags)
 	/* daveti: for LBM l2cap TX filtering */
 	if (lbm_is_enabled()) {
 		/* Reassemble the pkt if needed */
+		skb->lbm_bt.chan = (void *)chan;
+		if (lbm_bluetooth_l2cap_tx_reassemble(skb)) {
+			pr_err("LBM: bluetooth l2cap failed reassembling the pkt\n");
+			return;
+		}
 
 		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP,
 				LBM_CALL_DIR_EGRESS, (void *)skb);
 		if (ret == LBM_RES_DROP) {
 			if (lbm_is_bluetooth_l2cap_debug_enabled())
 				pr_info("LBM: bluetooth l2cap tx pkt [%p] is dropped\n", skb);
-			if (skb->lbm_bt.len)
-				kfree(skb->lbm_bt.data);
+			kfree(skb->lbm_bt.data);
 			kfree_skb(skb);
 			return;
 		}
+
+		/* Free the reassembling buffer */
+		kfree(skb->lbm_bt.data);
 	}
 
 	hci_queue_acl(chan, &chan->data_q, skb, flags);

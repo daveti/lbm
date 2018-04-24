@@ -21,6 +21,7 @@
 #define LBM_RES_DROP			1
 
 struct bpf_prog;
+struct sk_buff;
 
 struct lbm_mod{
 	char name[LBM_MOD_NAME_LEN];
@@ -28,6 +29,8 @@ struct lbm_mod{
 	int (*lbm_ingress_hook)(void *pkt);	/* The return value should be 0 or 1 - no others */
 	int (*lbm_egress_hook)(void *pkt);
 };
+
+int lbm_bluetooth_l2cap_tx_reassemble(struct sk_buff *skb);
 
 int lbm_is_enabled(void);
 int lbm_is_bpf_debug_enabled(void);

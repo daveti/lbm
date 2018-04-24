@@ -163,3 +163,45 @@ int lbm_bluetooth_test_run_skb(struct bpf_prog *prog, const union bpf_attr *katt
 	return 0;
 }
 
+
+int lbm_bluetooth_l2cap_tx_reassemble(struct sk_buff *skb)
+{
+	struct sk_buff *list;
+	unsigned char *ptr;
+
+	if (!skb->len)
+		return -EINVAL;
+
+	/* Allocate the reassemble buffer */
+	skb->lbm_bt.len = skb->len;
+	skb->lbm_bt.data = kmalloc(skb->lbm_bt.len, GFP_KERNEL);
+	if (!skb->lbm_bt.data) {
+		pr_err("LBM: kmalloc failed in %s\n", __func__);
+		goto l2cap_tx_reassemble;
+	}
+
+	/* skb->len reflects data in skb as well as all fragments
+	 * skb->data_len reflects only data in fragments
+	 */
+	list = skb_shinfo(skb)->frag_list;
+	if (!list) {
+		/* Non fragmented */
+		memcpy(skb->lbm_bt.data, skb->data, skb->lbm_bt.len);
+	} else {
+		/* Fragmented */
+		memcpy(skb->lbm_bt.data, skb->data, skb_headlen(skb));
+		ptr = skb->lbm_bt.data + skb_headlen(skb);
+		do {
+			skb = list;
+			list = list->next;
+			memcpy(ptr, skb->data, skb->len);
+			ptr += skb->len;
+		} while (list);
+	}
+
+	return 0;
+
+l2cap_tx_reassemble_err:
+	return -ENOMEM;
+}
+

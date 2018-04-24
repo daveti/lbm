@@ -755,6 +755,7 @@ struct sk_buff {
 	struct {
 		void		*hdev;	/* daveti: for bt backtracking */
 		void		*conn;	/* daveti: for bt backtracking */
+		void		*chan;	/* daveti: for bt l2cap backtracking */
 		unsigned char	*data;	/* daveti: for bt l2cap tx reassembling */
 		unsigned int	len;	/* daveti: length of the data */
 	} lbm_bt;
