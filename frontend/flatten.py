@@ -5,6 +5,7 @@ from lark.tree import Visitor
 
 from common import *
 from ir import *
+from backend import *
 
 # Post-order DFS
 def dfs(t):
@@ -104,7 +105,8 @@ def lbm_print_ir(ir):
 def main():
     parser = load_grammar("lbm-dsl.g")
 
-    expression = "(((((usb >= - 0x3) || (usb == (usb == (50 && 10))) ||(usb == 1))))) && usb == 2"
+    expression = "usb.iProduct == 0xf00d && usb.iManufacturer == 1234 && usb.iProduct == 5 && usb.iManufacturer == 0xffffffff && usb.iManufacturer == 0xffffffff"
+    #expression = "(((((usb >= - 0x3) || (usb == (usb == (50 && 10))) ||(usb == 1))))) && usb == 2"
     #expression = "1 || 2 || 3"
     #expression = "(usb.productId[0:1] == 0xf00d && usb.mfg == \"test\")"
 
@@ -135,6 +137,12 @@ def main():
     print("IR")
     lbm_print_ir(ir)
 
+    ## Generate code
+
+    print("generating code")
+    backend = CBackend(ir, {})
+    code = backend.compile()
+    print pprint.pprint(code)
 
 
 if __name__ == "__main__":
