@@ -76,8 +76,8 @@ class CBackend(Backend):
             return None
 
         # allocate registers (huehuehue)
-        print
-        print "register alloc"
+        #print
+        #print "register alloc"
 
         live_tmps = []
         for i, stmt in enumerate(self.ir):
@@ -97,12 +97,12 @@ class CBackend(Backend):
                 if next_ref is None:
                     live_tmps.remove(tmp)
                     reg.release(temp_map[tmp])
-                    print "%s is dead" % (tmp)
+                    #print "%s is dead" % (tmp)
 
-        print temp_map
+        #print temp_map
 
-        print
-        print "emit"
+        #print
+        #print "emit"
 
         # label (optional), insn
         self.EMIT("LSTART", "")
@@ -111,7 +111,8 @@ class CBackend(Backend):
         self.EMIT("", "BPF_MOV64_REG(BPF_REG_9, BPF_REG_1)")
 
         for stmt in self.ir:
-            print stmt
+            #print stmt
+
             dst = stmt.dst
             src = stmt.src
             tmp_ref = temp_map[dst]
@@ -197,8 +198,6 @@ class CBackend(Backend):
             if len(insn[1]) > 0:
                 new_program.append(insn[1])
                 pc += 1
-
-        print labels
 
         # Pass 2: replace labels with PC-relative values
         for pc in xrange(len(new_program)):
