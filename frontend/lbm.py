@@ -14,12 +14,26 @@ class FlattenExpressions(Transformer):
 
 class AtomToIntegral(Transformer):
     def number(self, args):
+        value = 0
+
         if args[0].type == "DEC_NUMBER":
-            return int(args[0])
+            value = int(args[0])
         elif args[0].type == "HEX_NUMBER":
-            return int(args[0], 16)
+            value = int(args[0], 16)
         else:
             raise ValueError("Unknown number subtype")
+
+        if value < 0:
+            e = args[0]
+            error = common.generate_error(e.line, e.column, "signed-integers not supported")
+            raise ValueError(error)
+
+        if value & (2**64-1) != value:
+            e = args[0]
+            error = common.generate_error(e.line, e.column, "integer is beyond the maximum integral type (64-bits)")
+            raise ValueError(error)
+
+        return value
 
     def attribute(self, args):
         return args[1]
@@ -34,10 +48,6 @@ class AtomToIntegral(Transformer):
             raise ValueError(error)
 
         return symbol
-
-class CheckNumbers(Visitor):
-    def number(self, tree):
-        print "WOW", tree.children[0].type
 
 class FlattenTree(Visitor):
     def comparison(self, tree):
@@ -146,7 +156,6 @@ def parse_and_assemble(expression, debug):
 
     tree = FlattenExpressions().transform(tree)
     tree = AtomToIntegral().transform(tree)
-    #CheckNumbers().visit(tree)
     #FlattenTree().visit(tree)
 
     if debug:
