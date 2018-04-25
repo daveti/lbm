@@ -10,6 +10,7 @@
 #include <linux/filter.h>
 #include <uapi/linux/lbm_bpf.h>
 #include <net/bluetooth/hci.h>
+#include <net/bluetooth/l2cap.h>
 
 /* BPF helpers */
 BPF_CALL_1(lbm_bluetooth_event_get_evt, struct sk_buff *, skb)
@@ -292,6 +293,370 @@ static const struct bpf_func_proto lbm_bluetooth_command_data_load_bytes_proto =
 };
 
 
+BPF_CALL_1(lbm_bluetooth_l2cap_get_cid, struct sk_buff *, skb)
+{
+	struct l2cap_hdr *lh = (void *) skb->data;
+	return __le16_to_cpu(lh->cid);
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_cid_proto = {
+	.func           = lbm_bluetooth_l2cap_get_cid,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_len, struct sk_buff *, skb)
+{
+	struct l2cap_hdr *lh = (void *) skb->data;
+	return __le16_to_cpu(lh->len);
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_len_proto = {
+	.func           = lbm_bluetooth_l2cap_get_len,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_dst, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	__u64 baddr = 0;
+	memcpy(&baddr, &hcon->dst, sizeof(bdaddr_t));
+	return baddr;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_dst_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_dst,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_dst_type, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	return hcon->dst_type;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_dst_type_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_dst_type,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_src, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	__u64 baddr = 0;
+	memcpy(&baddr, &hcon->src, sizeof(bdaddr_t));
+	return baddr;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_src_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_src,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_src_type, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	return hcon->src_type;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_src_type_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_src_type,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_state, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	return hcon->state;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_state_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_state,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_mode, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	return hcon->mode;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_mode_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_mode,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_type, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	return hcon->type;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_type_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_type,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_role, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	return hcon->role;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_role_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_role,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_key_type, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	return hcon->key_type;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_key_type_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_key_type,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_auth_type, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	return hcon->auth_type;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_auth_type_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_auth_type,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_sec_level, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	return hcon->sec_level;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_sec_level_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_sec_level,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_io_capability, struct sk_buff *, skb)
+{
+	struct l2cap_conn *conn = (struct l2cap_conn *)skb->lbm_bt.conn;
+	struct hci_conn *hcon = conn->hcon;
+	return hcon->io_capability;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_io_capability_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conn_io_capability,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_sig_cmd_num, struct sk_buff *, skb)
+{
+	u8 *data = skb->data + L2CAP_HDR_SIZE;
+	int len = skb->len - L2CAP_HDR_SIZE;
+	int cnt = 0;
+	u16 cmd_len;
+	struct l2cap_cmd_hdr *cmd;
+
+	while (len >= L2CAP_CMD_HDR_SIZE) {
+		cmd = (struct l2cap_cmd_hdr *)data;
+		data += L2CAP_CMD_HDR_SIZE;
+		len  -= L2CAP_CMD_HDR_SIZE;
+		cmd_len = le16_to_cpu(cmd->len);
+		data += cmd_len;
+		len  -= cmd_len;
+		cnt++;
+	}
+
+	return cnt;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_sig_cmd_num_proto = {
+	.func           = lbm_bluetooth_l2cap_get_sig_cmd_num,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_sig_cmd_code_idx, struct sk_buff *, skb,
+		u32, idx)
+{
+	u8 *data = skb->data + L2CAP_HDR_SIZE;
+	int len = skb->len - L2CAP_HDR_SIZE;
+	int cnt = 0;
+	u16 cmd_len;
+	struct l2cap_cmd_hdr *cmd;
+	u8 code = 0;	/* invalid code */
+
+	while (len >= L2CAP_CMD_HDR_SIZE) {
+		cmd = (struct l2cap_cmd_hdr *)data;
+		if (idx == cnt) {
+			code = cmd->code;
+			break;
+		}
+		data += L2CAP_CMD_HDR_SIZE;
+		len  -= L2CAP_CMD_HDR_SIZE;
+		cmd_len = le16_to_cpu(cmd->len);
+		data += cmd_len;
+		len  -= cmd_len;
+		cnt++;
+	}
+
+	return code;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_sig_cmd_code_idx_proto = {
+	.func           = lbm_bluetooth_l2cap_get_sig_cmd_code_idx,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_CONST_SIZE,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_sig_cmd_id_idx, struct sk_buff *, skb,
+		u32, idx)
+{
+	u8 *data = skb->data + L2CAP_HDR_SIZE;
+	int len = skb->len - L2CAP_HDR_SIZE;
+	int cnt = 0;
+	u16 cmd_len;
+	struct l2cap_cmd_hdr *cmd;
+	u8 id = 0;	/* invalid id */
+
+	while (len >= L2CAP_CMD_HDR_SIZE) {
+		cmd = (struct l2cap_cmd_hdr *)data;
+		if (idx == cnt) {
+			id = cmd->ident;
+			break;
+		}
+		data += L2CAP_CMD_HDR_SIZE;
+		len  -= L2CAP_CMD_HDR_SIZE;
+		cmd_len = le16_to_cpu(cmd->len);
+		data += cmd_len;
+		len  -= cmd_len;
+		cnt++;
+	}
+
+	return id;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_sig_cmd_id_idx_proto = {
+	.func           = lbm_bluetooth_l2cap_get_sig_cmd_id_idx,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_CONST_SIZE,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_sig_cmd_len_idx, struct sk_buff *, skb,
+		u32, idx)
+{
+	u8 *data = skb->data + L2CAP_HDR_SIZE;
+	int len = skb->len - L2CAP_HDR_SIZE;
+	int cnt = 0;
+	u16 cmd_len;
+	struct l2cap_cmd_hdr *cmd;
+
+	while (len >= L2CAP_CMD_HDR_SIZE) {
+		cmd = (struct l2cap_cmd_hdr *)data;
+		data += L2CAP_CMD_HDR_SIZE;
+		len  -= L2CAP_CMD_HDR_SIZE;
+		cmd_len = le16_to_cpu(cmd->len);
+		if (idx == cnt)
+			return cmd_len;
+		data += cmd_len;
+		len  -= cmd_len;
+		cnt++;
+	}
+
+	return 0;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_sig_cmd_len_idx_proto = {
+	.func           = lbm_bluetooth_l2cap_get_sig_cmd_len_idx,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_CONST_SIZE,
+};
+
+
+BPF_CALL_1(lbm_bluetooth_l2cap_get_conless_psm, struct sk_buff *, skb)
+{
+	__le16 psm = get_unaligned((__le16 *)(skb->data+L2CAP_HDR_SIZE));
+	return psm;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conless_psm_proto = {
+	.func           = lbm_bluetooth_l2cap_get_conless_psm,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+
+
+
+
 
 
 /* BPF verifier ops */
@@ -360,6 +725,63 @@ int lbm_bluetooth_test_run_skb(struct bpf_prog *prog, const union bpf_attr *katt
 {
 	return 0;
 }
+
+
+/* For l2cap */
+const struct bpf_func_proto *lbm_bluetooth_func_l2cap_proto(enum bpf_func_id func_id)
+{
+	switch (func_id) {
+	/* Common ones */
+	/* lbm bluetooth l2cap specific */
+	default:
+		return NULL;
+	}
+}
+
+bool lbm_bluetooth_l2cap_is_valid_access(int off, int size,
+				enum bpf_access_type type,
+				struct bpf_insn_access_aux *info)
+{
+	/* Make sure we are in range */
+	if (off < 0 || off >= sizeof(struct __lbm_bluetooth))
+		return false;
+	if (off % size != 0)
+		return false;
+
+	/* Block any write for now */
+	if (type == BPF_WRITE)
+		return false;
+
+	return true;
+}
+
+u32 lbm_bluetooth_l2cap_convert_ctx_access(enum bpf_access_type type,
+				const struct bpf_insn *si,
+				struct bpf_insn *insn_buf,
+				struct bpf_prog *prog, u32 *target_size)
+{
+	struct bpf_insn *insn = insn_buf;
+
+	switch (si->off) {
+	default:
+		break;
+	}
+
+	return insn - insn_buf;
+}
+
+int lbm_bluetooth_l2cap_prologue(struct bpf_insn *insn_buf, bool direct_write,
+				const struct bpf_prog *prog)
+{
+	return 0;
+}
+
+int lbm_bluetooth_l2cap_test_run_skb(struct bpf_prog *prog, const union bpf_attr *kattr,
+				union bpf_attr __user *uattr)
+{
+	return 0;
+}
+
 
 
 int lbm_bluetooth_l2cap_tx_reassemble(struct sk_buff *skb)

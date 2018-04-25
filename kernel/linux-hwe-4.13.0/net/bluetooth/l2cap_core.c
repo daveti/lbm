@@ -6933,12 +6933,6 @@ static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
 	__le16 psm;
 	int ret;
 
-	if (hcon->state != BT_CONNECTED) {
-		BT_DBG("queueing pending rx skb");
-		skb_queue_tail(&conn->pending_rx, skb);
-		return;
-	}
-
 	/* daveti: for lbm l2cap RX filtering */
 	if (lbm_is_enabled()) {
 		skb->lbm_bt.conn = (void *)conn;
@@ -6951,6 +6945,12 @@ static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
 			kfree_skb(skb);
 			return;
 		}
+	}
+
+	if (hcon->state != BT_CONNECTED) {
+		BT_DBG("queueing pending rx skb");
+		skb_queue_tail(&conn->pending_rx, skb);
+		return;
 	}
 
 	skb_pull(skb, L2CAP_HDR_SIZE);
