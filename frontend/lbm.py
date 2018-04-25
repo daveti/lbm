@@ -101,6 +101,12 @@ def lbm_tree_to_ir(tree):
 
                     ir.append(IRAssign(rhs_tmp, IRLoadCtx(rhs.offset)))
                     rhs = rhs_tmp
+                elif isinstance(rhs, SymbolHelper):
+                    rhs_tmp = IRTemp(temp_count)
+                    temp_count += 1
+
+                    ir.append(IRAssign(rhs_tmp, IRCall(rhs.name)))
+                    rhs = rhs_tmp
                 else:
                     raise ValueError("Unsupported symbol type: %s" % type(rhs))
 
