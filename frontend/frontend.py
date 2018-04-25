@@ -13,7 +13,10 @@ def main():
     try:
         lbm.parse_and_assemble(args.expression, args.debug)
     except ValueError as e:
-        print("error: %s" % e.message)
+        if args.debug:
+            raise
+        else:
+            print("error: %s" % e.message)
 
 if __name__ == "__main__":
     main()
