@@ -12,6 +12,17 @@ def load_grammar(filename):
     except IOError:
         raise
 
+# gcc-like error messages
+def generate_error_with_ctx(line, column, message, context, highlight_width=1):
+    message = generate_error(line, column, message)
+    message += " " + context + "\n"
+    message += " " + " "*(column) + "^"*(highlight_width)
+
+    return message
+
+def generate_error(line, column, message):
+    return "error:%d:%d: %s" % (line, column, message) + "\n"
+
 def parse_lbm_dsl(parser, expression):
     try:
         tree = parser.parse(expression)
@@ -19,10 +30,9 @@ def parse_lbm_dsl(parser, expression):
     except lark.lexer.UnexpectedInput as e:
         lines = expression.split("\n")
 
-        # gcc-like error messages
-        print("error:%d:%d: unknown character '%s'" % (e.line, e.column, e.context[0]))
-        print(" " + lines[e.line-1])
-        print(" " + " "*(e.column) + "^")
+        error = generate_error_with_ctx(e.line, e.column, "unknown character '%s'" % e.context[0], lines[e.line-1])
+
+        raise ValueError(error)
     except lark.common.UnexpectedToken as e:
         lines = expression.split("\n")
         expected = e.expected
@@ -39,9 +49,8 @@ def parse_lbm_dsl(parser, expression):
         if error_message == "":
             error_message = "unexpected token '%s'" % str(e.token)
 
-        print("error:%d:%d: %s" % (e.line, e.column, error_message))
-        print(" " + lines[e.line-1])
-        print(" " + " "*(e.column) + "^"*(len(str(e.token))))
+        error = generate_error_with_ctx(e.line, e.column, error_message, lines[e.line-1],
+                highlight_width=len(str(e.token)))
 
-    return None
+        raise ValueError(error)
 

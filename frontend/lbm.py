@@ -22,20 +22,16 @@ class AtomToIntegral(Transformer):
             raise ValueError("Unknown number subtype")
 
     def attribute(self, args):
-        return str(args[1])
+        return args[1]
 
     def struct(self, args):
-        identifier = ""
-
-        if len(args) == 1:
-            identifier = str(args[0])
-        else:
-            identifier = str(args[0]) + "." + args[1]
-
+        identifier = ".".join(args)
         symbol = lookup_symbol(identifier)
 
         if symbol is None:
-            raise ValueError("Unknown symbol: " + identifier)
+            e = args[0]
+            error = common.generate_error(e.line, e.column, "unknown symbol '%s'" % identifier)
+            raise ValueError(error)
 
         return symbol
 
