@@ -58,18 +58,28 @@ class CanonicalizeTree(Transformer):
         else:
             return Tree("comparison", args)
 
-def expressionize_tree(tree):
-    for t in tree.iter_subtrees():
-        if t.data == "comparison" or t.data == "logical_or" or t.data == "logical_and":
-            # Force an order of operation using parens when a logical operation
-            # has more than one pair of operands being used
-            # Make the code generation stage easier to reason about
-            while len(t.children) > 3:
-                lhs = t.children[0]
-                op = t.children[1]
-                rhs = t.children[2]
+class ExpressionizeTree(Transformer):
+    def comparison(self, args):
+        return self.handle(Tree("comparison", args))
 
-                t.children = [Tree(t.data, [lhs, op, rhs])] + t.children[3:]
+    def logical_or(self, args):
+        return self.handle(Tree("logical_or", args))
+
+    def logical_and(self, args):
+        return self.handle(Tree("logical_and", args))
+
+    def handle(self, tree):
+        # Force an order of operation using parens when a logical operation
+        # has more than one pair of operands being used
+        # Make the code generation stage easier to reason about
+        while len(tree.children) > 3:
+            lhs = tree.children[0]
+            op = tree.children[1]
+            rhs = tree.children[2]
+
+            tree.children = [Tree(tree.data, [lhs, op, rhs])] + tree.children[3:]
+
+        return tree
 
 def lbm_tree_to_ir(tree):
     ir = []
@@ -148,14 +158,10 @@ def parse_and_assemble(expression, debug):
         return
 
     if debug:
-        print("Raw Tree: " + str(tree))
+        print("Before: \n" + tree.pretty())
         print("")
 
-        print("Before: " + tree.pretty())
-        print("")
-
-    expressionize_tree(tree)
-
+    tree = ExpressionizeTree().transform(tree)
     tree = FlattenExpressions().transform(tree)
     tree = CanonicalizeTree().transform(tree)
 
@@ -163,7 +169,7 @@ def parse_and_assemble(expression, debug):
     tree = AtomToIntegral().transform(tree)
 
     if debug:
-        print("After: " + tree.pretty())
+        print("After transformations: \n" + tree.pretty())
 
     ir = lbm_tree_to_ir(tree)
 
