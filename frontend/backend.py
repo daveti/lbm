@@ -120,16 +120,34 @@ class CBackend(Backend):
             if isinstance(src, IRBinop):
                 op = src.op
 
-                if op == "EQ":
+                if op == "EQ" or op == "NE" or op == "LT" or op == "LTE" or op == "GT" or op == "GTE":
                     lhs = src.lhs
                     rhs = src.rhs
+                    jumpkind = ""
 
-                    if isinstance(rhs, int):
+                    if op == "EQ":    jumpkind = "BPF_JEQ"
+                    elif op == "NE":  jumpkind = "BPF_JNE"
+                    elif op == "LT":  jumpkind = "BPF_JLT"
+                    elif op == "LTE": jumpkind = "BPF_JLE"
+                    elif op == "GT":  jumpkind = "BPF_JGT"
+                    elif op == "GTE": jumpkind = "BPF_JGE"
+                    else: assert 0
+
+                    if isinstance(lhs, IRTemp) and isinstance(rhs, int):
                         tmp = temp_map[lhs]
                         label = self.new_label()
 
                         self.EMIT("", "BPF_MOV64_IMM(%s, 1)" % (tmp_ref))
-                        self.EMIT("", "BPF_JMP_IMM(BPF_JEQ, %s, %d, %s)" % (tmp, rhs, label))
+                        self.EMIT("", "BPF_JMP_IMM(%s, %s, %d, %s)" % (jumpkind, tmp, rhs, label))
+                        self.EMIT("", "BPF_MOV64_IMM(%s, 0)" % (tmp_ref))
+                        self.EMIT(label, "")
+                    elif isinstance(lhs, IRTemp) and isinstance(rhs, IRTemp):
+                        tmp_lhs = temp_map[lhs]
+                        tmp_rhs = temp_map[rhs]
+                        label = self.new_label()
+
+                        self.EMIT("", "BPF_MOV64_IMM(%s, 1)" % (tmp_ref))
+                        self.EMIT("", "BPF_JMP_REG(%s, %s, %s, %s)" % (jumpkind, tmp_lhs, tmp_rhs, label))
                         self.EMIT("", "BPF_MOV64_IMM(%s, 0)" % (tmp_ref))
                         self.EMIT(label, "")
                     else:
