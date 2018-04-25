@@ -36,7 +36,19 @@
 	FN(lbm_usb_get_bNumConfigurations),		\
 	FN(lbm_bluetooth_event_get_evt),		\
 	FN(lbm_bluetooth_event_get_plen),		\
-	FN(lbm_bluetooth_event_data_load_bytes),
+	FN(lbm_bluetooth_event_data_load_bytes),	\
+	FN(lbm_bluetooth_acl_get_handle),		\
+	FN(lbm_bluetooth_acl_get_flags),		\
+	FN(lbm_bluetooth_acl_get_dlen),			\
+	FN(lbm_bluetooth_acl_data_load_bytes),		\
+	FN(lbm_bluetooth_sco_get_handle),		\
+	FN(lbm_bluetooth_sco_get_flags),		\
+	FN(lbm_bluetooth_sco_get_dlen),			\
+	FN(lbm_bluetooth_sco_data_load_bytes),		\
+	FN(lbm_bluetooth_command_get_ogf),		\
+	FN(lbm_bluetooth_command_get_ocf),		\
+	FN(lbm_bluetooth_command_get_plen),		\
+	FN(lbm_bluetooth_command_data_load_bytes),
 
 /* lbm defined user-space bpf contexts */
 struct __lbm_usb {
@@ -54,8 +66,13 @@ struct __lbm_usb {
 };
 
 struct __lbm_bluetooth {
-	__u32 pkt_type;		/* Note that this is the pkt_type from cb rather than skb */
-	__u32 pkt_len;
+	__u32 type;		/* Note that this is the pkt_type from cb rather than skb */
+	__u32 len;		/* skb->len */
+	__u32 prio;		/* skb->priority */
+};
+
+struct __lbm_bluetooth_l2cap {
+	__u32 todo;
 };
 
 struct __lbm_nfc {

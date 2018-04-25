@@ -108,6 +108,14 @@ struct bpf_verifier_ops lbm_bluetooth_prog_ops = {
 	.test_run               = lbm_bluetooth_test_run_skb,
 };
 
+struct bpf_verifier_ops lbm_bluetooth_l2cap_prog_ops = {
+	.get_func_proto         = lbm_bluetooth_l2cap_func_proto,
+	.is_valid_access        = lbm_bluetooth_l2cap_is_valid_access,
+	.convert_ctx_access     = lbm_bluetooth_l2cap_convert_ctx_access,
+	.gen_prologue           = lbm_bluetooth_l2cap_prologue,
+	.test_run               = lbm_bluetooth_l2cap_test_run_skb,
+};
+
 struct bpf_verifier_ops lbm_nfc_prog_ops = {
 	.get_func_proto         = lbm_nfc_func_proto,
 	.is_valid_access        = lbm_nfc_is_valid_access,
@@ -840,13 +848,17 @@ static ssize_t lbm_sysfs_perf_write(struct file *file, const char __user *buf,
  		else if (strncmp(p, "usb:rx:", 7) == 0)
 			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
  		else if (strncmp(p, "bluetooth:tx:", 13) == 0)
-			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
+			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][0]);
  		else if (strncmp(p, "bluetooth:rx:", 13) == 0)
-			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
+			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][1]);
+ 		else if (strncmp(p, "bluetooth-l2cap:tx:", 19) == 0)
+			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][0]);
+ 		else if (strncmp(p, "bluetooth-l2cap:rx:", 19) == 0)
+			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][1]);
  		else if (strncmp(p, "nfc:tx:", 7) == 0)
-			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
+			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][0]);
 		else if (strncmp(p, "nfc:rx:", 7) == 0)
-			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
+			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][1]);
  		else {
  			pr_err("LBM: %s - unsupported endable option [%s]\n", __func__, p);
 			res = -EINVAL;
