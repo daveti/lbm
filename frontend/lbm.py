@@ -49,11 +49,14 @@ class AtomToIntegral(Transformer):
 
         return symbol
 
-class FlattenTree(Visitor):
-    def comparison(self, tree):
-        print "WOW", tree
-    def logical_and(self, tree):
-        print "AND", tree
+class CanonicalizeTree(Transformer):
+    def comparison(self, args):
+        assert len(args) == 3
+
+        if args[0].data == "number" and args[2].data == "struct":
+            return Tree("comparison", args[::-1])
+        else:
+            return Tree("comparison", args)
 
 def expressionize_tree(tree):
     for t in tree.iter_subtrees():
@@ -151,12 +154,13 @@ def parse_and_assemble(expression, debug):
         print("Before: " + tree.pretty())
         print("")
 
-    #dfs(tree)
     expressionize_tree(tree)
 
     tree = FlattenExpressions().transform(tree)
+    tree = CanonicalizeTree().transform(tree)
+
+    # Should be performed last
     tree = AtomToIntegral().transform(tree)
-    #FlattenTree().visit(tree)
 
     if debug:
         print("After: " + tree.pretty())
