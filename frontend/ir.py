@@ -32,6 +32,16 @@ class IRCall(IRExpr):
     def __repr__(self):
         return "call(%s)" % (self.name)
 
+# We're entering HACK country...
+class IRByteCmp(IRExpr):
+    def __init__(self, length_fn, byte_fn, byte_string):
+        self.length_fn = length_fn
+        self.byte_fn = byte_fn
+        self.byte_string = byte_string
+
+    def __repr__(self):
+        return "bytecmp(%s, %s, \"%s\")" % (self.length_fn, self.byte_fn, self.byte_string)
+
 class IRBinop(IRExpr):
     def __init__(self, op, lhs, rhs):
         self.op = op

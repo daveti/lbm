@@ -181,6 +181,42 @@ class CBackend(Backend):
                 self.EMIT("", "BPF_MOV64_REG(BPF_REG_1, BPF_REG_9)")
                 self.EMIT("", "BPF_CALL_FUNC(BPF_FUNC_%s)" % (src.name))
                 self.EMIT("", "BPF_MOV64_REG(%s, BPF_REG_0)" % (tmp_ref))
+            # XXX: IRByteCmp is a leaky abstraction. The byte cmp should be
+            # done entirely at the IR level, but our IR is too weak :'(
+            elif isinstance(src, IRByteCmp):
+                match_label = self.new_label()
+                bad_label = self.new_label()
+                end_procedure = self.new_label()
+
+                # Get the length of the string to compare
+                self.EMIT("", "BPF_MOV64_REG(BPF_REG_1, BPF_REG_9)")
+                self.EMIT("", "BPF_CALL_FUNC(BPF_FUNC_%s)" % (src.length_fn))
+                self.EMIT("", "BPF_MOV64_IMM(%s, %d)" % (tmp_ref, len(src.byte_string)))
+
+                # string_len != byte_string_len -> goto out (fastpath)
+                self.EMIT("", "BPF_JMP_REG(BPF_JNE, BPF_REG_0, %s, %s)" % (tmp_ref, bad_label))
+
+                # Do we need to worry about endianess here?
+                # Pad the byte string if necessary
+                bytes_to_cmp = src.byte_string + "\x00"*(len(src.byte_string) % 8)
+
+                # okay we have strings that match in length, lets compare them
+                # for each set of 8-bytes
+                for word_cnt in range(len(bytes_to_cmp)/8):
+                    from struct import unpack
+
+                    self.EMIT("", "BPF_MOV64_REG(BPF_REG_1, BPF_REG_9)")
+                    self.EMIT("", "BPF_MOV64_IMM(BPF_REG_2, %d)" % (word_cnt*8))
+                    self.EMIT("", "BPF_CALL_FUNC(BPF_FUNC_%s)" % (src.byte_fn))
+
+                    chunk = unpack("<Q", bytes_to_cmp[word_cnt*8:(word_cnt+1)*8])[0]
+                    self.EMIT("", "BPF_LD_IMM64(%s, 0x%016xUL)" % (tmp_ref, chunk))
+                    self.EMIT("", "BPF_JMP_REG(BPF_JNE, BPF_REG_0, %s, %s)" % (tmp_ref, bad_label))
+
+                self.EMIT(match_label, "BPF_MOV64_IMM(%s, 1)" % (tmp_ref))
+                self.EMIT("", "BPF_JMP_A(%s)" % (end_procedure))
+                self.EMIT(bad_label, "BPF_MOV64_IMM(%s, 0)" % (tmp_ref))
+                self.EMIT(end_procedure, "")
             else:
                 raise ValueError("Unsupported IR: " + str(type(src)));
 

@@ -13,10 +13,11 @@ access : LBRACKET number COLON number RBRACKET
 number : DEC_NUMBER | HEX_NUMBER
 
 struct : IDENTIFIER (attribute)* access?
+string : STRING
 ?atom : number
       | "-" number
       | struct
-      | STRING
+      | string
       | "(" expression ")"
 
 // Tokens

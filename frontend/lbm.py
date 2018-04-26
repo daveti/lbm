@@ -35,6 +35,9 @@ class AtomToIntegral(Transformer):
 
         return value
 
+    def string(self, args):
+        return str(args[0])[1:-1]
+
     def attribute(self, args):
         return args[1]
 
@@ -110,6 +113,12 @@ def lbm_tree_to_ir(tree):
 
                     ir.append(IRAssign(lhs_tmp, IRCall(lhs.name)))
                     lhs = lhs_tmp
+                elif isinstance(lhs, SymbolString):
+                    assignment = tree_value[id(t)]
+
+                    # special case
+                    ir.append(IRAssign(assignment, IRByteCmp(lhs.length, lhs.load, rhs)))
+                    continue
                 else:
                     raise ValueError("Unsupported symbol type: %s" % type(lhs))
 
