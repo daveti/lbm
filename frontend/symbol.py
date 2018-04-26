@@ -50,10 +50,10 @@ usb_symbol_table = {
     "iSerialNumber" :          SymbolHelper(ty=Type.TY_INT_32, name="lbm_usb_get_iSerialNumber"),
     "bNumConfigurations" :     SymbolHelper(ty=Type.TY_INT_32, name="lbm_usb_get_bNumConfigurations"),
 
-    "devpath" :                SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_devpath_len", load="lbm_usb_devpath_load_8_bytes"),
-    "manufacturer" :           SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_manufacturer_len", load="lbm_usb_manufacturer_load_8_bytes"),
-    "product" :                SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_product_len", load="lbm_usb_product_load_8_bytes"),
-    "serial" :                 SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_serial_len", load="lbm_usb_serial_load_8_bytes"),
+    "devpath" :                SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_devpath_len", load="lbm_usb_devpath_load_bytes_reg"),
+    "manufacturer" :           SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_manufacturer_len", load="lbm_usb_manufacturer_load_bytes_reg"),
+    "product" :                SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_product_len", load="lbm_usb_product_load_bytes_reg"),
+    "serial" :                 SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_serial_len", load="lbm_usb_serial_load_bytes_reg"),
 }
 
 symbol_table = {
