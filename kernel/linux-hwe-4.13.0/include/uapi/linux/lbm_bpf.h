@@ -20,6 +20,10 @@
 	FN(lbm_usb_product_load_bytes),			\
 	FN(lbm_usb_manufacturer_load_bytes),		\
 	FN(lbm_usb_serial_load_bytes),			\
+	FN(lbm_usb_devpath_load_bytes_reg),		\
+	FN(lbm_usb_product_load_bytes_reg),		\
+	FN(lbm_usb_manufacturer_load_bytes_reg),	\
+	FN(lbm_usb_serial_load_bytes_reg),		\
 	FN(lbm_usb_setup_packet_load_bytes),		\
 	FN(lbm_usb_transfer_buffer_load_bytes),		\
 	FN(lbm_usb_get_bcdUSB),				\

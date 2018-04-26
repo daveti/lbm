@@ -105,6 +105,30 @@ static const struct bpf_func_proto lbm_usb_devpath_load_bytes_proto = {
 };
 
 
+BPF_CALL_4(lbm_usb_devpath_load_bytes_reg, struct urb *, urb, u32, offset)
+{
+	u64 reg = 0;
+	int len = sizeof(reg);
+
+	if (unlikely(offset > strlen(urb->dev->devpath)))
+		return reg;
+
+	if (offset + len > strlen(urb->dev->devpath))
+		len = strlen(urb->dev->devpath) - offset;
+
+	memcpy(&reg, (void *)urb->dev->devpath+offset, len);
+	return reg;
+}
+
+static const struct bpf_func_proto lbm_usb_devpath_load_bytes_reg_proto = {
+	.func           = lbm_usb_devpath_load_bytes_reg,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+};
+
+
 BPF_CALL_4(lbm_usb_product_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
@@ -129,6 +153,30 @@ static const struct bpf_func_proto lbm_usb_product_load_bytes_proto = {
 	.arg2_type      = ARG_ANYTHING,
 	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
 	.arg4_type      = ARG_CONST_SIZE,
+};
+
+
+BPF_CALL_4(lbm_usb_product_load_bytes_reg, struct urb *, urb, u32, offset)
+{
+	u64 reg = 0;
+	int len = sizeof(reg);
+
+	if (unlikely(offset > strlen(urb->dev->product)))
+		return reg;
+
+	if (offset + len > strlen(urb->dev->product))
+		len = strlen(urb->dev->product) - offset;
+
+	memcpy(&reg, (void *)urb->dev->product+offset, len);
+	return reg;
+}
+
+static const struct bpf_func_proto lbm_usb_product_load_bytes_reg_proto = {
+	.func           = lbm_usb_product_load_bytes_reg,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
 };
 
 
@@ -159,6 +207,30 @@ static const struct bpf_func_proto lbm_usb_manufacturer_load_bytes_proto = {
 };
 
 
+BPF_CALL_4(lbm_usb_manufacturer_load_bytes_reg, struct urb *, urb, u32, offset)
+{
+	u64 reg = 0;
+	int len = sizeof(reg);
+
+	if (unlikely(offset > strlen(urb->dev->manufacturer)))
+		return reg;
+
+	if (offset + len > strlen(urb->dev->manufacturer))
+		len = strlen(urb->dev->manufacturer) - offset;
+
+	memcpy(&reg, (void *)urb->dev->manufacturer+offset, len);
+	return reg;
+}
+
+static const struct bpf_func_proto lbm_usb_manufacturer_load_bytes_reg_proto = {
+	.func           = lbm_usb_manufacturer_load_bytes_reg,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+};
+
+
 BPF_CALL_4(lbm_usb_serial_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
@@ -183,6 +255,30 @@ static const struct bpf_func_proto lbm_usb_serial_load_bytes_proto = {
 	.arg2_type      = ARG_ANYTHING,
 	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
 	.arg4_type      = ARG_CONST_SIZE,
+};
+
+
+BPF_CALL_4(lbm_usb_serial_load_bytes_reg, struct urb *, urb, u32, offset)
+{
+	u64 reg = 0;
+	int len = sizeof(reg);
+
+	if (unlikely(offset > strlen(urb->dev->serial)))
+		return reg;
+
+	if (offset + len > strlen(urb->dev->serial))
+		len = strlen(urb->dev->serial) - offset;
+
+	memcpy(&reg, (void *)urb->dev->serial+offset, len);
+	return reg;
+}
+
+static const struct bpf_func_proto lbm_usb_serial_load_bytes_reg_proto = {
+	.func           = lbm_usb_serial_load_bytes_reg,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
 };
 
 
@@ -439,6 +535,14 @@ const struct bpf_func_proto *lbm_usb_func_proto(enum bpf_func_id func_id)
 		return &lbm_usb_manufacturer_load_bytes_proto;
 	case BPF_FUNC_lbm_usb_serial_load_bytes:
 		return &lbm_usb_serial_load_bytes_proto;
+	case BPF_FUNC_lbm_usb_devpath_load_bytes_reg:
+		return &lbm_usb_devpath_load_bytes_reg_proto;
+	case BPF_FUNC_lbm_usb_product_load_bytes_reg:
+		return &lbm_usb_product_load_bytes_reg_proto;
+	case BPF_FUNC_lbm_usb_manufacturer_load_bytes_reg:
+		return &lbm_usb_manufacturer_load_bytes_reg_proto;
+	case BPF_FUNC_lbm_usb_serial_load_bytes_reg:
+		return &lbm_usb_serial_load_bytes_reg_proto;
 	case BPF_FUNC_lbm_usb_setup_packet_load_bytes:
 		return &lbm_usb_setup_packet_load_bytes_proto;
 	case BPF_FUNC_lbm_usb_transfer_buffer_load_bytes:
