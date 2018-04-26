@@ -220,7 +220,23 @@ class CBackend(Backend):
             else:
                 raise ValueError("Unsupported IR: " + str(type(src)));
 
-        self.EMIT("LEND", "")
+        drop_packet = self.new_label()
+        allow_packet = self.new_label()
+
+        last_result = temp_map[self.ir[-1].dst]
+
+        # if last_result != 0:
+        #   goto drop
+        # else:
+        #   goto allow
+
+        self.EMIT("", "BPF_JMP_IMM(BPF_JNE, %s, 0, %s)" % (last_result, drop_packet))
+        self.EMIT(allow_packet, "BPF_MOV64_IMM(BPF_REG_0, 0)")
+        self.EMIT("", "BPF_JMP_A(LEND)")
+        self.EMIT(drop_packet, "BPF_MOV64_IMM(BPF_REG_0, 1)")
+
+        # return code should be in R0
+        self.EMIT("LEND", "BPF_EXIT_INSN()")
 
         return self.code
 
