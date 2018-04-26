@@ -52,7 +52,29 @@
 	FN(lbm_bluetooth_command_get_ogf),		\
 	FN(lbm_bluetooth_command_get_ocf),		\
 	FN(lbm_bluetooth_command_get_plen),		\
-	FN(lbm_bluetooth_command_data_load_bytes),
+	FN(lbm_bluetooth_command_data_load_bytes),	\
+	FN(lbm_bluetooth_l2cap_get_cid),		\
+	FN(lbm_bluetooth_l2cap_get_len),		\
+	FN(lbm_bluetooth_l2cap_get_conn_dst),		\
+	FN(lbm_bluetooth_l2cap_get_conn_dst_type),	\
+	FN(lbm_bluetooth_l2cap_get_conn_src),		\
+	FN(lbm_bluetooth_l2cap_get_conn_src_type),	\
+	FN(lbm_bluetooth_l2cap_get_conn_state),		\
+	FN(lbm_bluetooth_l2cap_get_conn_mode),		\
+	FN(lbm_bluetooth_l2cap_get_conn_type),		\
+	FN(lbm_bluetooth_l2cap_get_conn_role),		\
+	FN(lbm_bluetooth_l2cap_get_conn_key_type),	\
+	FN(lbm_bluetooth_l2cap_get_conn_auth_type),	\
+	FN(lbm_bluetooth_l2cap_get_conn_sec_level),	\
+	FN(lbm_bluetooth_l2cap_get_conn_io_capability),	\
+	FN(lbm_bluetooth_l2cap_get_sig_cmd_num),	\
+	FN(lbm_bluetooth_l2cap_get_sig_cmd_code_idx),	\
+	FN(lbm_bluetooth_l2cap_get_sig_cmd_id_idx),	\
+	FN(lbm_bluetooth_l2cap_get_sig_cmd_len_idx),	\
+	FN(lbm_bluetooth_l2cap_get_conless_psm),	\
+	FN(lbm_bluetooth_l2cap_get_le_sig_cmd_code),	\
+	FN(lbm_bluetooth_l2cap_get_le_sig_cmd_id),	\
+	FN(lbm_bluetooth_l2cap_get_le_sig_cmd_len),
 
 /* lbm defined user-space bpf contexts */
 struct __lbm_usb {
