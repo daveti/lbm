@@ -333,7 +333,7 @@ static int find_bpf_given_name_db(char *name, struct hlist_head *db)
 
 	rcu_read_lock();
 	hlist_for_each_entry_rcu(p, db, entry) {
-		if (unlikely(strncasecmp(p->bpf_name, name, LBM_BPF_NAME_LEN) == 0)) {
+		if (unlikely(strncasecmp(p->bpf_name, name, strlen(name)) == 0)) {
 			exist = 1;
 			break;
 		}
@@ -441,7 +441,7 @@ static int find_mod_given_name(char *name)
 
 	rcu_read_lock();
 	hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
-		if (unlikely(strncasecmp(p->mod->name, name, LBM_MOD_NAME_LEN) == 0)) {
+		if (unlikely(strncasecmp(p->mod->name, name, strlen(name)) == 0)) {
 			exist = 1;
 			break;
 		}
@@ -564,7 +564,7 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 	if (mod->lbm_ingress_hook) {
 		spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
 		hlist_for_each_entry_rcu(q, &lbm_mod_ingress_db[mod->subsys_index], entry) {
-			if (strncasecmp(q->mod->name, mod->name, LBM_MOD_NAME_LEN) == 0) {
+			if (strncasecmp(q->mod->name, mod->name, strlen(mod->name)) == 0) {
 				hlist_del_rcu(&q->entry);
 				kfree_rcu(q, rcu);
 				break;
@@ -578,7 +578,7 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 	if (mod->lbm_egress_hook) {
 		spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
 		hlist_for_each_entry_rcu(q, &lbm_mod_egress_db[mod->subsys_index], entry) {
-			if (strncasecmp(q->mod->name, mod->name, LBM_MOD_NAME_LEN) == 0) {
+			if (strncasecmp(q->mod->name, mod->name, strlen(mod->name)) == 0) {
 				hlist_del_rcu(&q->entry);
 				kfree_rcu(q, rcu);
 				break;
@@ -593,7 +593,7 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 	/* Remove this mod from DB */
 	spin_lock_irqsave(&lbm_mod_db_lock, flags);
 	hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
-		if (strncasecmp(p->mod->name, mod->name, LBM_MOD_NAME_LEN) == 0) {
+		if (strncasecmp(p->mod->name, mod->name, strlen(mod->name)) == 0) {
 			hlist_del_rcu(&p->entry);
 			kfree_rcu(p, rcu);
 			lbm_mod_num--;
@@ -902,7 +902,7 @@ static int remove_mod_ingress_given_name(char *name)
 	spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
 	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
 		hlist_for_each_entry_rcu(q, &lbm_mod_ingress_db[i], entry) {
-			if (strncasecmp(q->mod->name, name, LBM_MOD_NAME_LEN) == 0) {
+			if (strncasecmp(q->mod->name, name, strlen(name)) == 0) {
 				hlist_del_rcu(&q->entry);
 				kfree_rcu(q, rcu);
 				res = 0;
@@ -929,7 +929,7 @@ static int remove_mod_egress_given_name(char *name)
 	spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
 	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
 		hlist_for_each_entry_rcu(q, &lbm_mod_egress_db[i], entry) {
-			if (strncasecmp(q->mod->name, name, LBM_MOD_NAME_LEN) == 0) {
+			if (strncasecmp(q->mod->name, name, strlen(name)) == 0) {
 				hlist_del_rcu(&q->entry);
 				kfree_rcu(q, rcu);
 				res = 0;
@@ -983,7 +983,7 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 			/* Remove this mod from DB */
 			spin_lock_irqsave(&lbm_mod_db_lock, flags);
 			hlist_for_each_entry_rcu(q, &lbm_mod_db, entry) {
-				if (strncasecmp(q->mod->name, name, LBM_MOD_NAME_LEN) == 0) {
+				if (strncasecmp(q->mod->name, name, strlen(name)) == 0) {
 					hlist_del_rcu(&q->entry);
 					kfree_rcu(q, rcu);
 					lbm_mod_num--;
@@ -1066,7 +1066,7 @@ static ssize_t lbm_sysfs_bpf_ingress_write(struct file *file, const char __user 
 			spin_lock_irqsave(&lbm_bpf_ingress_db_lock, flags);
 			for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
 				hlist_for_each_entry_rcu(q, &lbm_bpf_ingress_db[i], entry) {
-					if (strncasecmp(q->bpf_name, name, LBM_MOD_NAME_LEN) == 0) {
+					if (strncasecmp(q->bpf_name, name, strlen(name)) == 0) {
 						bpf_prog_sub(q->bpf, 1);
 						hlist_del_rcu(&q->entry);
 						kfree_rcu(q, rcu);
@@ -1152,7 +1152,7 @@ static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *
 			spin_lock_irqsave(&lbm_bpf_egress_db_lock, flags);
 			for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
 				hlist_for_each_entry_rcu(q, &lbm_bpf_egress_db[i], entry) {
-					if (strncasecmp(q->bpf_name, name, LBM_MOD_NAME_LEN) == 0) {
+					if (strncasecmp(q->bpf_name, name, strlen(name)) == 0) {
 						bpf_prog_sub(q->bpf, 1);
 						hlist_del_rcu(&q->entry);
 						kfree_rcu(q, rcu);
