@@ -157,31 +157,37 @@ inline int lbm_is_enabled(void)
 {
 	return lbm_enable;
 }
+EXPORT_SYMBOL_GPL(lbm_is_enabled);
 
 inline int lbm_is_bpf_debug_enabled(void)
 {
 	return lbm_bpf_debug;
 }
+EXPORT_SYMBOL_GPL(lbm_is_bpf_debug_enabled);
 
 inline int lbm_is_usb_debug_enabled(void)
 {
 	return lbm_usb_debug;
 }
+EXPORT_SYMBOL_GPL(lbm_is_usb_debug_enabled);
 
 inline int lbm_is_bluetooth_debug_enabled(void)
 {
 	return lbm_bluetooth_debug;
 }
+EXPORT_SYMBOL_GPL(lbm_is_bluetooth_debug_enabled);
 
 inline int lbm_is_bluetooth_l2cap_debug_enabled(void)
 {
 	return lbm_bluetooth_l2cap_debug;
 }
+EXPORT_SYMBOL_GPL(lbm_is_bluetooth_l2cap_debug_enabled);
 
 inline int lbm_is_nfc_debug_enabled(void)
 {
 	return lbm_nfc_debug;
 }
+EXPORT_SYMBOL_GPL(lbm_is_nfc_debug_enabled);
 
 
 /* Essential filter function used by different subsys */
@@ -293,6 +299,7 @@ filter_pkt_early_ret:
 			__func__, subsys, dir, pkt, res);
 	return res;
 }
+EXPORT_SYMBOL_GPL(lbm_filter_pkt);
 
 int lbm_find_prog_sub_type(struct bpf_prog *prog, int subsys, int dir)
 {
@@ -532,6 +539,7 @@ int lbm_register_mod(struct lbm_mod *mod)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(lbm_register_mod);
 
 int lbm_deregister_mod(struct lbm_mod *mod)
 {
@@ -606,6 +614,7 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(lbm_deregister_mod);
 
 
 

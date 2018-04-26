@@ -105,7 +105,7 @@ static const struct bpf_func_proto lbm_usb_devpath_load_bytes_proto = {
 };
 
 
-BPF_CALL_4(lbm_usb_devpath_load_bytes_reg, struct urb *, urb, u32, offset)
+BPF_CALL_2(lbm_usb_devpath_load_bytes_reg, struct urb *, urb, u32, offset)
 {
 	u64 reg = 0;
 	int len = sizeof(reg);
@@ -156,7 +156,7 @@ static const struct bpf_func_proto lbm_usb_product_load_bytes_proto = {
 };
 
 
-BPF_CALL_4(lbm_usb_product_load_bytes_reg, struct urb *, urb, u32, offset)
+BPF_CALL_2(lbm_usb_product_load_bytes_reg, struct urb *, urb, u32, offset)
 {
 	u64 reg = 0;
 	int len = sizeof(reg);
@@ -207,7 +207,7 @@ static const struct bpf_func_proto lbm_usb_manufacturer_load_bytes_proto = {
 };
 
 
-BPF_CALL_4(lbm_usb_manufacturer_load_bytes_reg, struct urb *, urb, u32, offset)
+BPF_CALL_2(lbm_usb_manufacturer_load_bytes_reg, struct urb *, urb, u32, offset)
 {
 	u64 reg = 0;
 	int len = sizeof(reg);
@@ -258,7 +258,7 @@ static const struct bpf_func_proto lbm_usb_serial_load_bytes_proto = {
 };
 
 
-BPF_CALL_4(lbm_usb_serial_load_bytes_reg, struct urb *, urb, u32, offset)
+BPF_CALL_2(lbm_usb_serial_load_bytes_reg, struct urb *, urb, u32, offset)
 {
 	u64 reg = 0;
 	int len = sizeof(reg);

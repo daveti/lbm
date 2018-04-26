@@ -9,10 +9,25 @@
 #include <linux/bpf.h>
 #include <linux/filter.h>
 #include <uapi/linux/lbm_bpf.h>
+#include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci.h>
+#include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/l2cap.h>
 
 /* BPF helpers */
+BPF_CALL_1(lbm_bluetooth_get_pkt_type, struct sk_buff *, skb)
+{
+	return hci_skb_pkt_type(skb);
+}
+
+static const struct bpf_func_proto lbm_bluetooth_get_pkt_type_proto= {
+	.func           = lbm_bluetooth_get_pkt_type,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
 BPF_CALL_1(lbm_bluetooth_event_get_evt, struct sk_buff *, skb)
 {
 	struct hci_event_hdr *hdr = (void *) skb->data;
@@ -534,7 +549,7 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_sig_cmd_num_proto = {
 };
 
 
-BPF_CALL_1(lbm_bluetooth_l2cap_get_sig_cmd_code_idx, struct sk_buff *, skb,
+BPF_CALL_2(lbm_bluetooth_l2cap_get_sig_cmd_code_idx, struct sk_buff *, skb,
 		u32, idx)
 {
 	u8 *data = skb->data + L2CAP_HDR_SIZE;
@@ -567,7 +582,7 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_sig_cmd_code_idx_prot
 };
 
 
-BPF_CALL_1(lbm_bluetooth_l2cap_get_sig_cmd_id_idx, struct sk_buff *, skb,
+BPF_CALL_2(lbm_bluetooth_l2cap_get_sig_cmd_id_idx, struct sk_buff *, skb,
 		u32, idx)
 {
 	u8 *data = skb->data + L2CAP_HDR_SIZE;
@@ -600,7 +615,7 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_sig_cmd_id_idx_proto 
 };
 
 
-BPF_CALL_1(lbm_bluetooth_l2cap_get_sig_cmd_len_idx, struct sk_buff *, skb,
+BPF_CALL_2(lbm_bluetooth_l2cap_get_sig_cmd_len_idx, struct sk_buff *, skb,
 		u32, idx)
 {
 	u8 *data = skb->data + L2CAP_HDR_SIZE;
@@ -728,6 +743,8 @@ const struct bpf_func_proto *lbm_bluetooth_func_proto(enum bpf_func_id func_id)
 	case BPF_FUNC_ktime_get_ns:
 		return &bpf_ktime_get_ns_proto;
 	/* lbm bluetooth specific */
+	case BPF_FUNC_lbm_bluetooth_get_pkt_type:
+		return &lbm_bluetooth_get_pkt_type_proto;
 	case BPF_FUNC_lbm_bluetooth_event_get_evt:
 		return &lbm_bluetooth_event_get_evt_proto;
 	case BPF_FUNC_lbm_bluetooth_event_get_plen:
@@ -788,17 +805,13 @@ u32 lbm_bluetooth_convert_ctx_access(enum bpf_access_type type,
 	struct bpf_insn *insn = insn_buf;
 
 	switch (si->off) {
-	case offsetof(struct __lbm_bluetooth, type):
-		*insn++ = BPF_LDX_MEM(BPF_B, si->dst_reg, si->src_reg,
-				bpf_target_off(struct sk_buff, cb, 1, target_size));
-		break;
-	case offsetof(struct __lbm_usb, len):
+	case offsetof(struct __lbm_bluetooth, len):
 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
 				bpf_target_off(struct sk_buff, len, 4, target_size));
 		break;
-	case offsetof(struct __lbm_usb, prio):
+	case offsetof(struct __lbm_bluetooth, prio):
 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
-				bpf_target_off(struct sk_buff, prioirty, 4, target_size));
+				bpf_target_off(struct sk_buff, priority, 4, target_size));
 		break;
 	default:
 		break;
@@ -821,7 +834,7 @@ int lbm_bluetooth_test_run_skb(struct bpf_prog *prog, const union bpf_attr *katt
 
 
 /* For l2cap */
-const struct bpf_func_proto *lbm_bluetooth_func_l2cap_proto(enum bpf_func_id func_id)
+const struct bpf_func_proto *lbm_bluetooth_l2cap_func_proto(enum bpf_func_id func_id)
 {
 	switch (func_id) {
 	/* Common ones */
@@ -941,7 +954,7 @@ int lbm_bluetooth_l2cap_tx_reassemble(struct sk_buff *skb)
 	skb->lbm_bt.data = kmalloc(skb->lbm_bt.len, GFP_KERNEL);
 	if (!skb->lbm_bt.data) {
 		pr_err("LBM: kmalloc failed in %s\n", __func__);
-		goto l2cap_tx_reassemble;
+		goto l2cap_tx_reassemble_err;
 	}
 
 	/* skb->len reflects data in skb as well as all fragments
@@ -968,4 +981,5 @@ int lbm_bluetooth_l2cap_tx_reassemble(struct sk_buff *skb)
 l2cap_tx_reassemble_err:
 	return -ENOMEM;
 }
+EXPORT_SYMBOL_GPL(lbm_bluetooth_l2cap_tx_reassemble);
 

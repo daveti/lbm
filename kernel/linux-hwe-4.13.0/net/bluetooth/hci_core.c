@@ -3340,7 +3340,7 @@ int hci_recv_diag(struct hci_dev *hdev, struct sk_buff *skb)
 			hci_skb_pkt_type(skb),
 			skb->len);
 	if (lbm_is_enabled()) {
-		skb->lbm_bt = (void *)hdev;
+		skb->lbm_bt.hdev = (void *)hdev;
 		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH,
 				LBM_CALL_DIR_INGRESS, (void *)skb);
 		if (ret == LBM_RES_DROP) {
@@ -3432,12 +3432,12 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 			skb->len);
 	if (lbm_is_enabled()) {
 		skb->lbm_bt.hdev = (void *)hdev;
-		err = lbm_filter_packet(LBM_SUBSYS_INDEX_BLUETOOTH,
+		err = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH,
 				LBM_CALL_DIR_EGRESS, (void *)skb);
 		if (err == LBM_RES_DROP) {
 			if (lbm_is_bluetooth_debug_enabled())
 				pr_info("LBM: bluetooth hci tx pkt [%p] is dropped\n", skb);
-			kfree_sbk(skb);
+			kfree_skb(skb);
 			return;
 		}
 	}

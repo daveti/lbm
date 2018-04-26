@@ -38,6 +38,7 @@
 	FN(lbm_usb_get_iProduct),			\
 	FN(lbm_usb_get_iSerialNumber),			\
 	FN(lbm_usb_get_bNumConfigurations),		\
+	FN(lbm_bluetooth_get_pkt_type),			\
 	FN(lbm_bluetooth_event_get_evt),		\
 	FN(lbm_bluetooth_event_get_plen),		\
 	FN(lbm_bluetooth_event_data_load_bytes),	\
@@ -92,7 +93,6 @@ struct __lbm_usb {
 };
 
 struct __lbm_bluetooth {
-	__u32 type;		/* Note that this is the pkt_type from cb rather than skb */
 	__u32 len;		/* skb->len */
 	__u32 prio;		/* skb->priority */
 };
