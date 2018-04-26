@@ -159,8 +159,15 @@ class CBackend(Backend):
                     lhs_temp = temp_map[lhs]
                     rhs_temp = temp_map[rhs]
 
-                    self.EMIT("", "BPF_ALU64_REG(BPF_AND, %s, %s)" % (lhs_temp, rhs_temp))
-                    self.EMIT("", "BPF_MOV64_REG(%s, %s)" % (tmp_ref, lhs_temp))
+                    cond_false = self.new_label()
+                    cond_end = self.new_label()
+
+                    self.EMIT("", "BPF_JMP_IMM(BPF_JEQ, %s, 0, %s)" % (lhs_temp, cond_false))
+                    self.EMIT("", "BPF_JMP_IMM(BPF_JEQ, %s, 0, %s)" % (rhs_temp, cond_false))
+                    self.EMIT("", "BPF_MOV64_IMM(%s, 1)" % (tmp_ref))
+                    self.EMIT("", "BPF_JMP_A(%s)" % (cond_end))
+                    self.EMIT(cond_false, "BPF_MOV64_IMM(%s, 0)" % (tmp_ref))
+                    self.EMIT(cond_end, "")
                 elif op == "OR":
                     lhs = src.lhs
                     rhs = src.rhs
@@ -168,8 +175,15 @@ class CBackend(Backend):
                     lhs_temp = temp_map[lhs]
                     rhs_temp = temp_map[rhs]
 
-                    self.EMIT("", "BPF_ALU64_REG(BPF_OR, %s, %s)" % (lhs_temp, rhs_temp))
-                    self.EMIT("", "BPF_MOV64_REG(%s, %s)" % (tmp_ref, lhs_temp))
+                    cond_true = self.new_label()
+                    cond_end = self.new_label()
+
+                    self.EMIT("", "BPF_JMP_IMM(BPF_JNE, %s, 0, %s)" % (lhs_temp, cond_true))
+                    self.EMIT("", "BPF_JMP_IMM(BPF_JNE, %s, 0, %s)" % (rhs_temp, cond_true))
+                    self.EMIT("", "BPF_MOV64_IMM(%s, 0)" % (tmp_ref))
+                    self.EMIT("", "BPF_JMP_A(%s)" % (cond_end))
+                    self.EMIT(cond_true, "BPF_MOV64_IMM(%s, 1)" % (tmp_ref))
+                    self.EMIT(cond_end, "")
                 else:
                     raise ValueError("Unsupported binop: " + op)
             elif isinstance(src, IRLoadCtx):
