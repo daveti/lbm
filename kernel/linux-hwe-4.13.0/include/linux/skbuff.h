@@ -753,11 +753,12 @@ struct sk_buff {
 
 #ifdef CONFIG_LBM
 	struct {
-		void		*hdev;	/* daveti: for bt backtracking */
-		void		*conn;	/* daveti: for bt backtracking */
-		void		*chan;	/* daveti: for bt l2cap backtracking */
+		void		*hdev;	/* daveti: hci_dev for bt backtracking */
+		void		*conn;	/* daveti: hci_conn for bt backtracking */
+		void		*chan;	/* daveti: for bt l2cap backtracking (not used for now) */
 		unsigned char	*data;	/* daveti: for bt l2cap tx reassembling */
 		unsigned int	len;	/* daveti: length of the data */
+		unsigned char	dir;	/* daveti: for bpf helpers to find the right data buffer */
 	} lbm_bt;
 #endif
 

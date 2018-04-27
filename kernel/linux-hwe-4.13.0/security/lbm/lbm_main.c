@@ -21,6 +21,7 @@
 #include <linux/filter.h>
 #include <linux/string.h>
 #include <linux/rculist.h>
+#include <linux/timekeeping.h>
 #include <linux/lbm.h>
 #include "lbm_usb.h"
 #include "lbm_bluetooth.h"
@@ -31,11 +32,17 @@
 #define LBM_MOD_ACT_ADD			0
 #define LBM_MOD_ACT_DEL			1
 #define LBM_TMP_BUF_LEN			256
-#define LBM_STAT_TX_CNT			0
-#define LBM_STAT_TX_CNT_FILTERED	1
-#define LBM_STAT_RX_CNT			2
-#define LBM_STAT_RX_CNT_FILTERED	3
+#define LBM_RX				LBM_CALL_DIR_INGRESS	/* 0 */
+#define LBM_TX				LBM_CALL_DIR_EGRESS	/* 1 */
+#define LBM_STAT_TX_CNT			LBM_TX			/* 1 */
+#define LBM_STAT_TX_CNT_FILTERED	(LBM_TX+2)		/* 3 */
+#define LBM_STAT_RX_CNT			LBM_RX			/* 0 */
+#define LBM_STAT_RX_CNT_FILTERED	(LBM_RX+2)		/* 2 */
 #define LBM_STAT_NUM_MAX		4
+#define LBM_MBM_SEC_IN_USEC		1000000	/* micro benchmark */
+#define LBM_MBM_SUB_TV(s,e)		\
+	((e.tv_sec*LBM_MBM_SEC_IN_USEC+e.tv_usec) - \
+	(s.tv_sec*LBM_MBM_SEC_IN_USEC+s.tv_usec))
 
 /* Global vars */
 static struct hlist_head lbm_bpf_ingress_db[LBM_SUB_SYS_NUM_MAX];
@@ -77,7 +84,7 @@ static int lbm_stats_enable;
 
 /* BPF map should be working so we literally do not need these */
 static unsigned long lbm_stats_db[LBM_SUB_SYS_NUM_MAX][LBM_STAT_NUM_MAX];
-static int lbm_perf_enable[LBM_SUB_SYS_NUM_MAX][2];	/* tx: 0, rx: 1 */
+static int lbm_perf_enable[LBM_SUB_SYS_NUM_MAX][2];	/* tx: 1, rx: 0 */
 
 static struct dentry *lbm_sysfs_dir;
 static struct dentry *lbm_sysfs_enable;
@@ -195,6 +202,7 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 {
 	struct lbm_bpf_mod_info *p;
 	int res;
+	struct timeval start_tv, end_tv;
 
 	if (!lbm_enable)
 		return LBM_RES_ALLOW;
@@ -208,10 +216,14 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 		pr_err("%s: invalid subsys [%d]\n", __func__, subsys);
 		return -1;
 	}
-	if (check_calldir(dir)) {
+	if (check_calldir(dir) || (dir == LBM_CALL_DIR_INEGRESS)) {
 		pr_err("%s: invalid calldir [%d]\n", __func__, dir);
 		return -1;
 	}
+
+	/* Perf start */
+	if (lbm_perf_enable[subsys][dir])
+		do_gettimeofday(&start_tv);
 
 	/* Run the damn bpf/mod
 	 * Current policy is to stop until we hit the first drop.
@@ -288,12 +300,20 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 	}
 
 filter_pkt_early_ret:
+	/* Perf ends */
+	if (lbm_perf_enable[subsys][dir]) {
+		do_gettimeofday(&end_tv);
+		pr_info("lbm-perf: %s took [%lu] us for subsys [%d] and dir [%d]\n", __func__,
+                        LBM_MBM_SUB_TV(start_tv, end_tv), subsys, dir);
+	}
+
 	if (lbm_stats_enable && (res == LBM_RES_DROP)) {
 		if (dir == LBM_CALL_DIR_INGRESS)
 			lbm_stats_db[subsys][LBM_STAT_RX_CNT_FILTERED]++;
 		else
 			lbm_stats_db[subsys][LBM_STAT_TX_CNT_FILTERED]++;
 	}
+
 	if (lbm_main_debug)
 		pr_info("LBM: %s - subsys [%d], dir [%d], pkt [%p], res [%d]\n",
 			__func__, subsys, dir, pkt, res);
@@ -813,17 +833,16 @@ static ssize_t lbm_sysfs_perf_read(struct file *filp,
 	char tmp_buf[LBM_TMP_BUF_LEN];
 	ssize_t len;
 
-	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "enabled:%d, usb:%d|%d, bluetooth:%d|%d, "
-			"bluetooth-l2cap: %d|%d, nfc:%d|%d\n",
-			lbm_stats_enable,
-			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0],
-			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1],
-			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][0],
-			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][1],
-			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][0],
-			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][1],
-			lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][0],
-			lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][1]);
+	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "subsys:rx|tx - usb:%d|%d, bluetooth:%d|%d, "
+			"bluetooth-l2cap:%d|%d, nfc:%d|%d\n",
+			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][LBM_RX],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_USB][LBM_TX],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_RX],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_TX],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_RX],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_TX],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][LBM_RX],
+			lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][LBM_TX]);
 	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
 }
 
@@ -853,21 +872,21 @@ static ssize_t lbm_sysfs_perf_write(struct file *file, const char __user *buf,
 	 */
 	while ((p = strsep(&data, ",")) != NULL) {
 		if (strncmp(p, "usb:tx:", 7) == 0)
-			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][0]);
+			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][LBM_TX]);
  		else if (strncmp(p, "usb:rx:", 7) == 0)
-			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][1]);
+			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_USB][LBM_RX]);
  		else if (strncmp(p, "bluetooth:tx:", 13) == 0)
-			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][0]);
+			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_TX]);
  		else if (strncmp(p, "bluetooth:rx:", 13) == 0)
-			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][1]);
+			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_RX]);
  		else if (strncmp(p, "bluetooth-l2cap:tx:", 19) == 0)
-			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][0]);
+			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_TX]);
  		else if (strncmp(p, "bluetooth-l2cap:rx:", 19) == 0)
-			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][1]);
+			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_RX]);
  		else if (strncmp(p, "nfc:tx:", 7) == 0)
-			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][0]);
+			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][LBM_TX]);
 		else if (strncmp(p, "nfc:rx:", 7) == 0)
-			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][1]);
+			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][LBM_RX]);
  		else {
  			pr_err("LBM: %s - unsupported endable option [%s]\n", __func__, p);
 			res = -EINVAL;

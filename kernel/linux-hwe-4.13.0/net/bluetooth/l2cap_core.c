@@ -6935,13 +6935,19 @@ static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
 
 	/* daveti: for lbm l2cap RX filtering */
 	if (lbm_is_enabled()) {
-		skb->lbm_bt.conn = (void *)conn;
+		skb->lbm_bt.conn = (void *)hcon;
+		skb->lbm_bt.dir = LBM_CALL_DIR_INGRESS;
+
+		if (lbm_is_bluetooth_l2cap_debug_enabled())
+			pr_info("LBM: bluetooth l2cap recv skb/pkt [%p] with len [%d] for conn [%p]\n",
+				skb, skb->len, skb->lbm_bt.conn);
+
 		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP,
 				LBM_CALL_DIR_INGRESS, (void *)skb);
 		if (ret == LBM_RES_DROP) {
 			if (lbm_is_bluetooth_l2cap_debug_enabled())
-				pr_info("LBM: Bluetooth l2cap pkt [%p] for conn [%p] is dropped\n",
-					skb, conn);
+				pr_info("LBM: bluetooth l2cap rx pkt [%p] for conn [%p] is dropped\n",
+					skb, skb->lbm_bt.conn);
 			kfree_skb(skb);
 			return;
 		}
