@@ -880,9 +880,9 @@ static ssize_t lbm_sysfs_perf_write(struct file *file, const char __user *buf,
  		else if (strncmp(p, "bluetooth:rx:", 13) == 0)
 			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH][LBM_RX]);
  		else if (strncmp(p, "bluetooth-l2cap:tx:", 19) == 0)
-			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_TX]);
+			res = update_boolean_value(p+19, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_TX]);
  		else if (strncmp(p, "bluetooth-l2cap:rx:", 19) == 0)
-			res = update_boolean_value(p+13, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_RX]);
+			res = update_boolean_value(p+19, &lbm_perf_enable[LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP][LBM_RX]);
  		else if (strncmp(p, "nfc:tx:", 7) == 0)
 			res = update_boolean_value(p+7, &lbm_perf_enable[LBM_SUBSYS_INDEX_NFC][LBM_TX]);
 		else if (strncmp(p, "nfc:rx:", 7) == 0)
