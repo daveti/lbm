@@ -654,6 +654,55 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_sig_cmd_len_idx_proto
 };
 
 
+BPF_CALL_5(lbm_bluetooth_l2cap_sig_cmd_data_load_bytes_idx, struct sk_buff *, skb,
+		u32, offset, void *, to, u32, len, u32, idx)
+{
+	u8 *data = skb->data + L2CAP_HDR_SIZE;
+	int len2 = skb->len - L2CAP_HDR_SIZE;
+	int cnt = 0;
+	u16 cmd_len;
+	struct l2cap_cmd_hdr *cmd;
+
+	if (skb->lbm_bt.dir == LBM_CALL_DIR_EGRESS)
+		data = skb->lbm_bt.data + L2CAP_HDR_SIZE;
+
+	while (len >= L2CAP_CMD_HDR_SIZE) {
+		cmd = (struct l2cap_cmd_hdr *)data;
+		cmd_len = le16_to_cpu(cmd->len);
+		if (idx == cnt) {
+			if ((unlikely(offset > cmd_len)) ||
+				(unlikely(len > cmd_len)) ||
+				(unlikely(offset+len > cmd_len)))
+				goto sig_cmd_data_load_err;
+
+			/* Copy the bytes */
+			memcpy(to, data+L2CAP_CMD_HDR_SIZE+offset, len);
+			return 0;
+		}
+		data += L2CAP_CMD_HDR_SIZE;
+		len2  -= L2CAP_CMD_HDR_SIZE;
+		data += cmd_len;
+		len2  -= cmd_len;
+		cnt++;
+	}
+
+sig_cmd_data_load_err:
+	memset(to, 0, len);
+	return -EFAULT;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_sig_cmd_data_load_bytes_idx_proto = {
+	.func           = lbm_bluetooth_l2cap_sig_cmd_data_load_bytes_idx,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
+	.arg4_type      = ARG_CONST_SIZE,
+	.arg5_type	= ARG_ANYTHING,
+};
+
+
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conless_psm, struct sk_buff *, skb)
 {
 	__le16 psm = get_unaligned((__le16 *)(skb->data+L2CAP_HDR_SIZE));
@@ -667,6 +716,41 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conless_psm_proto = {
 	.gpl_only       = false,
 	.ret_type       = RET_INTEGER,
 	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
+BPF_CALL_4(lbm_bluetooth_l2cap_conless_data_load_bytes, struct sk_buff *, skb, u32, offset,
+		void *, to, u32, len)
+{
+	int plen = skb->len;
+	u8 *data = (void *)skb->data;
+	if (skb->lbm_bt.dir == LBM_CALL_DIR_EGRESS)
+		data = (void *)skb->lbm_bt.data;
+	
+	data += L2CAP_PSMLEN_SIZE;
+	plen -= L2CAP_PSMLEN_SIZE;
+
+	if ((unlikely(offset > plen)) ||
+		(unlikely(len > plen)) ||
+		(unlikely(offset+len > plen)))
+		goto conless_data_load_err;
+
+	memcpy(to, data+offset, len);
+	return 0;
+
+conless_data_load_err:
+	memset(to, 0, len);
+	return -EFAULT;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_conless_data_load_bytes_proto = {
+	.func           = lbm_bluetooth_l2cap_conless_data_load_bytes,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
+	.arg4_type      = ARG_CONST_SIZE,
 };
 
 
@@ -736,7 +820,86 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_le_sig_cmd_len_proto 
 };
 
 
-/* TODO: support for l2cap_data_channel */
+BPF_CALL_4(lbm_bluetooth_l2cap_le_sig_cmd_data_load_bytes, struct sk_buff *, skb, u32, offset,
+		void *, to, u32, len)
+{
+	struct l2cap_cmd_hdr *cmd;
+	u8 *data;
+	int plen;
+
+	if (skb->len < L2CAP_CMD_HDR_SIZE + L2CAP_HDR_SIZE)
+		return 0;
+
+	data = (void *)skb->data;
+	if (skb->lbm_bt.dir == LBM_CALL_DIR_EGRESS)
+		data = (void *)skb->lbm_bt.data;
+	data += L2CAP_HDR_SIZE;
+	cmd = (void *)data;
+	plen = le16_to_cpu(cmd->len);
+
+	data += L2CAP_CMD_HDR_SIZE;
+	plen -= L2CAP_CMD_HDR_SIZE;
+
+	if ((unlikely(offset > plen)) ||
+		(unlikely(len > plen)) ||
+		(unlikely(offset+len > plen)))
+		goto conless_data_load_err;
+
+	memcpy(to, data+offset, len);
+	return 0;
+
+conless_data_load_err:
+	memset(to, 0, len);
+	return -EFAULT;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_le_sig_cmd_data_load_bytes_proto = {
+	.func           = lbm_bluetooth_l2cap_le_sig_cmd_data_load_bytes,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
+	.arg4_type      = ARG_CONST_SIZE,
+};
+
+
+BPF_CALL_4(lbm_bluetooth_l2cap_data_load_bytes, struct sk_buff *, skb, u32, offset,
+		void *, to, u32, len)
+{
+	int plen;
+	u8 *data;
+	struct l2cap_hdr *lh;
+
+	data = (void *)skb->data;
+	if (skb->lbm_bt.dir == LBM_CALL_DIR_EGRESS)
+		data = (void *) skb->lbm_bt.data;
+
+	lh = (void *)data;
+	plen = __le16_to_cpu(lh->len);
+
+	if ((unlikely(offset > plen)) ||
+		(unlikely(len > plen)) ||
+		(unlikely(offset+len > plen)))
+		goto l2cap_data_load_err;
+
+	memcpy(to, data+L2CAP_HDR_SIZE+offset, len);
+	return 0;
+
+l2cap_data_load_err:
+	memset(to, 0, len);
+	return -EFAULT;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_data_load_bytes_proto = {
+	.func           = lbm_bluetooth_l2cap_data_load_bytes,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type      = ARG_ANYTHING,
+	.arg3_type      = ARG_PTR_TO_UNINIT_MEM,
+	.arg4_type      = ARG_CONST_SIZE,
+};
 
 
 
@@ -906,14 +1069,22 @@ const struct bpf_func_proto *lbm_bluetooth_l2cap_func_proto(enum bpf_func_id fun
 		return &lbm_bluetooth_l2cap_get_sig_cmd_id_idx_proto;
 	case BPF_FUNC_lbm_bluetooth_l2cap_get_sig_cmd_len_idx:
 		return &lbm_bluetooth_l2cap_get_sig_cmd_len_idx_proto;
+	case BPF_FUNC_lbm_bluetooth_l2cap_sig_cmd_data_load_bytes_idx:
+		return &lbm_bluetooth_l2cap_sig_cmd_data_load_bytes_idx_proto;
 	case BPF_FUNC_lbm_bluetooth_l2cap_get_conless_psm:
 		return &lbm_bluetooth_l2cap_get_conless_psm_proto;
+	case BPF_FUNC_lbm_bluetooth_l2cap_conless_data_load_bytes:
+		return &lbm_bluetooth_l2cap_conless_data_load_bytes_proto;
 	case BPF_FUNC_lbm_bluetooth_l2cap_get_le_sig_cmd_code:
 		return &lbm_bluetooth_l2cap_get_le_sig_cmd_code_proto;
 	case BPF_FUNC_lbm_bluetooth_l2cap_get_le_sig_cmd_id:
 		return &lbm_bluetooth_l2cap_get_le_sig_cmd_id_proto;
 	case BPF_FUNC_lbm_bluetooth_l2cap_get_le_sig_cmd_len:
 		return &lbm_bluetooth_l2cap_get_le_sig_cmd_len_proto;
+	case BPF_FUNC_lbm_bluetooth_l2cap_le_sig_cmd_data_load_bytes:
+		return &lbm_bluetooth_l2cap_le_sig_cmd_data_load_bytes_proto;
+	case BPF_FUNC_lbm_bluetooth_l2cap_data_load_bytes:
+		return &lbm_bluetooth_l2cap_data_load_bytes_proto;
 	default:
 		return NULL;
 	}

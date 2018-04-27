@@ -72,10 +72,14 @@
 	FN(lbm_bluetooth_l2cap_get_sig_cmd_code_idx),	\
 	FN(lbm_bluetooth_l2cap_get_sig_cmd_id_idx),	\
 	FN(lbm_bluetooth_l2cap_get_sig_cmd_len_idx),	\
+	FN(lbm_bluetooth_l2cap_sig_cmd_data_load_bytes_idx),	\
 	FN(lbm_bluetooth_l2cap_get_conless_psm),	\
+	FN(lbm_bluetooth_l2cap_conless_data_load_bytes),	\
 	FN(lbm_bluetooth_l2cap_get_le_sig_cmd_code),	\
 	FN(lbm_bluetooth_l2cap_get_le_sig_cmd_id),	\
-	FN(lbm_bluetooth_l2cap_get_le_sig_cmd_len),
+	FN(lbm_bluetooth_l2cap_get_le_sig_cmd_len),	\
+	FN(lbm_bluetooth_l2cap_le_sig_cmd_data_load_bytes),	\
+	FN(lbm_bluetooth_l2cap_data_load_bytes),
 
 /* lbm defined user-space bpf contexts */
 struct __lbm_usb {
