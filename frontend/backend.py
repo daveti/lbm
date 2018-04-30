@@ -246,7 +246,7 @@ class CBackend(Backend):
 
         self.EMIT("", "BPF_JMP_IMM(BPF_JNE, %s, 0, %s)" % (last_result, drop_packet))
         self.EMIT(allow_packet, "BPF_MOV64_IMM(BPF_REG_0, 0)")
-        self.EMIT("", "BPF_JMP_A(LEND)")
+        self.EMIT("", "BPF_EXIT_INSN()")
         self.EMIT(drop_packet, "BPF_MOV64_IMM(BPF_REG_0, 1)")
 
         # return code should be in R0
@@ -280,12 +280,19 @@ class CBackend(Backend):
 
             # We have an instruction
             if len(insn[1]) > 0:
-                new_program.append(insn[1])
-                pc += 1
+                new_program.append([pc, insn[1]])
+
+                if insn[1].startswith('BPF_LD_IMM64'): # special case
+                    pc += 2
+                else:
+                    pc += 1
 
         # Pass 2: replace labels with PC-relative values
-        for pc in xrange(len(new_program)):
-            insn = new_program[pc]
+        for idx, insn in enumerate(new_program):
+            pc = insn[0]
+            insn = insn[1]
+
+            new_program[idx] = insn
 
             # O(n^2) label replace
             for label, label_pc in labels.iteritems():
@@ -294,11 +301,12 @@ class CBackend(Backend):
                 if pos == -1:
                     continue
 
-                delta = label_pc - pc
+                # Minus 1 as PC points to the next instruction
+                delta = label_pc - pc - 1
                 
                 if delta <= 0:
                     raise ValueError("PC-relative branch is negative or zero: address %d" % pc)
 
-                new_program[pc] = insn.replace(label, str(delta))
+                new_program[idx] = insn.replace(label, str(delta))
 
         return new_program
