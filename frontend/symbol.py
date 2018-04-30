@@ -54,11 +54,93 @@ usb_symbol_table = {
     "manufacturer" :           SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_manufacturer_len", load="lbm_usb_manufacturer_load_bytes_reg"),
     "product" :                SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_product_len", load="lbm_usb_product_load_bytes_reg"),
     "serial" :                 SymbolString(ty=Type.TY_STRING, length="lbm_usb_get_serial_len", load="lbm_usb_serial_load_bytes_reg"),
+
+    #data # requires load bytes
+    #request # requires load bytes
+}
+
+bt_hci = {
+    "len" :        SymbolContext(ty=Type.TY_INT_32, offset=0),
+    "prio" :       SymbolContext(ty=Type.TY_INT_32, offset=4),
+
+    "type" :       SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_pkt_type"),
+    "event" : {
+        "evt" :    SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_event_get_evt"),
+        "plen" :   SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_event_get_plen"),
+        #"data" # needs stack and manual ASM
+    },
+    "acl" : {
+        "handle" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_acl_get_handle"),
+        "flags" :  SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_acl_get_flags"),
+        "dlen" :   SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_acl_get_dlen"),
+        #"data" # needs stack and manual ASM
+    },
+    "sco" : {
+        "handle" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_sco_get_handle"),
+        "flags" :  SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_sco_get_flags"),
+        "dlen" :   SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_sco_get_dlen"),
+        #"data" # needs stack and manual ASM
+    },
+    "command" : {
+        "ogf" :    SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_command_get_ogf"),
+        "ocf" :    SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_command_get_ocf"),
+        "plen" :   SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_command_get_plen"),
+        #"data" # needs stack and manual ASM
+    }
+}
+
+bt_l2cap = {
+    "cid" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_cid"),
+    "len" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_len"),
+
+    "conn" : {
+        "dst" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_dst"),
+        "dst_type" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_dst_type"),
+        "src" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_src"),
+        "src_type" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_src_type"),
+        "state" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_state"),
+        "mode" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_mode"),
+        "type" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_type"),
+        "role" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_role"),
+        "key_type" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_key_type"),
+        "auth_type" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_auth_type"),
+        "sec_level" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_sec_level"),
+        "io_capability" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_io_capability"),
+    },
+    "sig" : {
+        "cmd" : {
+            "num" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_sig_cmd_num"),
+            #code[i] lbm_bluetooth_l2cap_get_sig_cmd_code_idx # indexed needs manual ASM
+            #id[i] lbm_bluetooth_l2cap_get_sig_cmd_id_idx
+            #len[i] lbm_bluetooth_l2cap_get_sig_cmd_len_idx
+            #data # need load bytes
+        }
+    },
+    "conless" : {
+        "psm" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conless_psm"),
+        #data # need load bytes
+    },
+    "le" : {
+        "sig" : {
+            "cmd": {
+                "code" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_le_sig_cmd_code"),
+                "id" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_le_sig_cmd_id"),
+                "len" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_le_sig_cmd_len"),
+                #data # need load bytes
+            }
+         }
+    }
+    #"data" # need load bytes
+}
+
+bt_symbol_table = {
+    "hci" : bt_hci,
+    "l2cap" : bt_l2cap,
 }
 
 symbol_table = {
     "usb" : usb_symbol_table,
-    "bt" : {}
+    "bt" : bt_symbol_table,
 }
 
 def lookup_symbol(symbol):
