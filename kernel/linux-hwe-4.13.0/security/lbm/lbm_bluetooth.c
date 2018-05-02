@@ -1415,7 +1415,7 @@ static void lbm_bluetooth_debug_conn(struct sk_buff *skb)
 	memcpy(&baddr_dst, &hcon->dst, sizeof(bdaddr_t));
 	memcpy(&baddr_src, &hcon->src, sizeof(bdaddr_t));
 
-	pr_info("conn [%p] - dst [%lu], dst_type [%d], src [%lu], src_type [%d], "
+	pr_info("conn [%p] - dst [%llu], dst_type [%d], src [%llu], src_type [%d], "
 		"state [%d], mode [%d], type [%d], role [%d], key_type [%d], "
 		"auth_type [%d], sec_level [%d], io_capability [%d]\n",
 		hcon,
@@ -1464,7 +1464,7 @@ void lbm_bluetooth_hci_debug_skb(struct sk_buff *skb)
 		pr_info("(acl), handle [%d], flags [%d], dlen [%d]\n",
 			hci_handle(handle),
 			hci_flags(handle),
-			__le16_to_cpu(alc_hdr->dlen));
+			__le16_to_cpu(acl_hdr->dlen));
 		lbm_bluetooth_debug_conn(skb);
 		break;
 	case HCI_SCODATA_PKT:

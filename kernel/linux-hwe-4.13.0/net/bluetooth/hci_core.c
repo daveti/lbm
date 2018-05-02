@@ -3310,10 +3310,7 @@ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
 		skb->lbm_bt.conn = (void *)lbm_bluetooth_hci_get_conn(skb);
 
 		if (lbm_is_bluetooth_debug_enabled())
-			pr_info("LBM: bluetooth %s recv pkt/skb [%p], type [%d], len [%d]\n",
-				hdev->name, skb,
-				hci_skb_pkt_type(skb),
-				skb->len);
+			lbm_bluetooth_hci_debug_skb(skb);
 
 		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH,
 				LBM_CALL_DIR_INGRESS, (void *)skb);
@@ -3349,10 +3346,7 @@ int hci_recv_diag(struct hci_dev *hdev, struct sk_buff *skb)
 		skb->lbm_bt.dir = LBM_CALL_DIR_INGRESS;
 
 		if (lbm_is_bluetooth_debug_enabled())
-			pr_info("LBM: bluetooth %s recv diag pkt/skb [%p], type [%d], len [%d]\n",
-				hdev->name, skb,
-				hci_skb_pkt_type(skb),
-				skb->len);
+			lbm_bluetooth_hci_debug_skb(skb);
 
 		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH,
 				LBM_CALL_DIR_INGRESS, (void *)skb);
@@ -3446,10 +3440,7 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 		 * And now we only support for ACL and SCO for conn at the HCI layer
 		 */
 		if (lbm_is_bluetooth_debug_enabled())
-			pr_info("LBM: bluetooth %s send pkt/skb [%p], type [%d], len [%d]\n",
-				hdev->name, skb,
-				hci_skb_pkt_type(skb),
-				skb->len);
+			lbm_bluetooth_hci_debug_skb(skb);
 
 		err = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH,
 				LBM_CALL_DIR_EGRESS, (void *)skb);
@@ -3632,8 +3623,7 @@ void hci_send_acl(struct hci_chan *chan, struct sk_buff *skb, __u16 flags)
 		}
 
 		if (lbm_is_bluetooth_l2cap_debug_enabled())
-			pr_info("LBM: bluetooth l2cap send skb/pkt [%p] with len [%d] for conn [%p]\n",
-				skb, skb->lbm_bt.len, skb->lbm_bt.conn);
+			lbm_bluetooth_l2cap_debug_skb(skb);
 
 		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP,
 				LBM_CALL_DIR_EGRESS, (void *)skb);
