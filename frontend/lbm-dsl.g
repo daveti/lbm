@@ -40,8 +40,8 @@ LTE : "<="
 COMMENT: /(\/\/|#)[^\n]*/
 NEWLINE: ( /\r?\n[\t ]*/ | COMMENT )+
 
-DEC_NUMBER: /[0-9]\d*l?/i
-HEX_NUMBER: /0x[\da-f]*l?/i
+DEC_NUMBER: /[0-9]\d*/i
+HEX_NUMBER: /0x[\da-f]*/i
 
 %import common.CNAME -> IDENTIFIER
 %import common.ESCAPED_STRING -> STRING
