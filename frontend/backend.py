@@ -231,6 +231,8 @@ class CBackend(Backend):
                 self.EMIT("", "BPF_JMP_A(%s)" % (end_procedure))
                 self.EMIT(bad_label, "BPF_MOV64_IMM(%s, 0)" % (tmp_ref))
                 self.EMIT(end_procedure, "")
+            elif isinstance(src, int):
+                self.EMIT("", "BPF_LD_IMM64(%s, 0x%016xUL)" % (tmp_ref, src))
             else:
                 raise ValueError("Unsupported IR: " + str(type(src)));
 

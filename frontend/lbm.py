@@ -125,6 +125,13 @@ def lbm_tree_to_ir(tree):
                     continue
                 else:
                     raise ValueError("Unsupported symbol type: %s" % type(lhs))
+            elif isinstance(lhs, int):
+                if lhs > (2**32-1):
+                    lhs_tmp = IRTemp(temp_count)
+                    temp_count += 1
+
+                    ir.append(IRAssign(lhs_tmp, lhs))
+                    lhs = lhs_tmp
 
             if isinstance(rhs, Symbol):
                 if isinstance(rhs, SymbolContext):
@@ -141,6 +148,13 @@ def lbm_tree_to_ir(tree):
                     rhs = rhs_tmp
                 else:
                     raise ValueError("Unsupported symbol type: %s" % type(rhs))
+            elif isinstance(rhs, int):
+                if rhs > (2**32-1):
+                    rhs_tmp = IRTemp(temp_count)
+                    temp_count += 1
+
+                    ir.append(IRAssign(rhs_tmp, rhs))
+                    rhs = rhs_tmp
 
             # Lookup the temporary assignments for operands, if any
             if id(lhs) in tree_value:
@@ -154,6 +168,15 @@ def lbm_tree_to_ir(tree):
 
             # emit an assignment
             ir.append(IRAssign(assignment, IRBinop(op.type, lhs, rhs)))
+        elif t.data =="start":
+            if len(t.children) == 0:
+                error = common.generate_error(1, 0, "empty program with no expressions")
+                raise ValueError(error)
+            elif not isinstance(t.children[0], Tree):
+                error = common.generate_error(1, 0, "cannot convert bare integral value to truth value")
+                raise ValueError(error)
+        else:
+            raise ValueError("lbm_tree_to_ir: unable to convert %s to IR" % str(t))
 
     return ir
 
