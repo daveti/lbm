@@ -54,6 +54,19 @@
 	FN(lbm_bluetooth_command_get_ocf),		\
 	FN(lbm_bluetooth_command_get_plen),		\
 	FN(lbm_bluetooth_command_data_load_bytes),	\
+	FN(lbm_bluetooth_has_conn),			\
+	FN(lbm_bluetooth_get_conn_dst),			\
+	FN(lbm_bluetooth_get_conn_dst_type),		\
+	FN(lbm_bluetooth_get_conn_src),			\
+	FN(lbm_bluetooth_get_conn_src_type),		\
+	FN(lbm_bluetooth_get_conn_state),		\
+	FN(lbm_bluetooth_get_conn_mode),		\
+	FN(lbm_bluetooth_get_conn_type),		\
+	FN(lbm_bluetooth_get_conn_role),		\
+	FN(lbm_bluetooth_get_conn_key_type),		\
+	FN(lbm_bluetooth_get_conn_auth_type),		\
+	FN(lbm_bluetooth_get_conn_sec_level),		\
+	FN(lbm_bluetooth_get_conn_io_capability),	\
 	FN(lbm_bluetooth_l2cap_get_cid),		\
 	FN(lbm_bluetooth_l2cap_get_len),		\
 	FN(lbm_bluetooth_l2cap_get_conn_dst),		\
