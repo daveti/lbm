@@ -3302,6 +3302,13 @@ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
 		skb->lbm_bt.hdev = (void *)hdev;
 		skb->lbm_bt.dir = LBM_CALL_DIR_INGRESS;
 
+		/* Since we enable conn helpers at the HCI layer
+		 * need to hunt for the conn earlier here, rather than
+		 * delaying to l2cap layer.
+		 * NOTE: only ACL and SCO are supported for now.
+		 */
+		skb->lbm_bt.conn = (void *)lbm_bluetooth_hci_get_conn(skb);
+
 		if (lbm_is_bluetooth_debug_enabled())
 			pr_info("LBM: bluetooth %s recv pkt/skb [%p], type [%d], len [%d]\n",
 				hdev->name, skb,
@@ -3435,6 +3442,9 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 		skb->lbm_bt.hdev = (void *)hdev;
 		skb->lbm_bt.dir = LBM_CALL_DIR_EGRESS;
 
+		/* The conn has been set either by hci_send_acl or hci_send_sco
+		 * And now we only support for ACL and SCO for conn at the HCI layer
+		 */
 		if (lbm_is_bluetooth_debug_enabled())
 			pr_info("LBM: bluetooth %s send pkt/skb [%p], type [%d], len [%d]\n",
 				hdev->name, skb,
@@ -3659,6 +3669,9 @@ void hci_send_sco(struct hci_conn *conn, struct sk_buff *skb)
 	memcpy(skb_transport_header(skb), &hdr, HCI_SCO_HDR_SIZE);
 
 	hci_skb_pkt_type(skb) = HCI_SCODATA_PKT;
+
+	/* daveti: set the hci conn for sco */
+	skb->lbm_bt.conn = (void *) conn;
 
 	skb_queue_tail(&conn->data_q, skb);
 	queue_work(hdev->workqueue, &hdev->tx_work);

@@ -1409,8 +1409,28 @@ EXPORT_SYMBOL_GPL(lbm_bluetooth_l2cap_tx_reassemble);
 static void lbm_bluetooth_debug_conn(struct sk_buff *skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	u64 baddr_dst = 0;
+	u64 baddr_src = 0;
 
-	pr_info("conn [%p] - ");
+	memcpy(&baddr_dst, &hcon->dst, sizeof(bdaddr_t));
+	memcpy(&baddr_src, &hcon->src, sizeof(bdaddr_t));
+
+	pr_info("conn [%p] - dst [%lu], dst_type [%d], src [%lu], src_type [%d], "
+		"state [%d], mode [%d], type [%d], role [%d], key_type [%d], "
+		"auth_type [%d], sec_level [%d], io_capability [%d]\n",
+		hcon,
+		baddr_dst,
+		hcon->dst_type,
+		baddr_src,
+		hcon->src_type,
+		hcon->state,
+		hcon->mode,
+		hcon->type,
+		hcon->role,
+		hcon->key_type,
+		hcon->auth_type,
+		hcon->sec_level,
+		hcon->io_capability);
 }
 
 
@@ -1480,19 +1500,98 @@ EXPORT_SYMBOL_GPL(lbm_bluetooth_hci_debug_skb);
 void lbm_bluetooth_l2cap_debug_skb(struct sk_buff *skb)
 {
 	u8 *data;
-
-	pr_info("LBM: bluetooth l2cap skb [%p] - dir [%d], len [%d], "
-		"priority [%d], "
-		skb
-		skb->lbm_bt.dir,
-		skb->len
-		skb->priority);
+	u16 cid, len, cmd_len;
+	struct l2cap_hdr *lh;
+	struct l2cap_cmd_hdr *cmd;
+	__le16 psm;
+	int i = 0;
 
 	data = (void *) skb->data;
 	if (skb->lbm_bt.dir == LBM_CALL_DIR_EGRESS)
 		data = skb->lbm_bt.data;
+	lh = (void *) data;
+
+	cid = __le16_to_cpu(lh->cid);
+	len = __le16_to_cpu(lh->len);
+	data += L2CAP_HDR_SIZE;
+
+	pr_info("LBM: bluetooth l2cap skb [%p] - dir [%d], len(skb) [%d], "
+		"priority [%d], len(pkt) [%d], cid [%d] ",
+		skb,
+		skb->lbm_bt.dir,
+		skb->len,
+		skb->priority,
+		len, cid);
+
+	switch (cid) {
+	case L2CAP_CID_SIGNALING:
+		pr_info("(signaling), ");
+		while (len > L2CAP_CMD_HDR_SIZE) {
+			cmd = (void *) data;
+			cmd_len = le16_to_cpu(cmd->len);
+			pr_info("cmd_idx [%d], code [%d], id [%d], len(cmd) [%d], ",
+				i, cmd->code, cmd->ident, cmd_len);
+			data += L2CAP_CMD_HDR_SIZE;
+			len  -= L2CAP_CMD_HDR_SIZE;
+			data += cmd_len;
+			len  -= cmd_len;
+			i++;
+		}
+		pr_info("cmd_num [%d]\n", i);
+		break;
+	case L2CAP_CID_CONN_LESS:
+		psm = get_unaligned((__le16 *)data);
+		pr_info("(connless), psm [%d]\n", __le16_to_cpu(psm));
+		break;
+	case L2CAP_CID_LE_SIGNALING:
+		cmd = (void *) data;
+		cmd_len = le16_to_cpu(cmd->len);
+		pr_info("(le_signaling), cmd code [%d], id [%d], len(cmd) [%d]\n",
+			cmd->code, cmd->ident, cmd_len);
+		break;
+	default:
+		pr_info("(data)\n");
+		break;
+	}
 
 	lbm_bluetooth_debug_conn(skb);
 }
 EXPORT_SYMBOL_GPL(lbm_bluetooth_l2cap_debug_skb);
 
+/* Get the conn early at the HCI layer for RX path */
+void *lbm_bluetooth_hci_get_conn(struct sk_buff *skb)
+{
+	struct hci_acl_hdr *acl_hdr;
+	struct hci_sco_hdr *sco_hdr;
+	struct hci_conn *conn;
+	struct hci_dev *hdev;
+	__u16 handle;
+
+	/* Should be set by the lbm bt rx hook */
+	hdev = (void *) skb->lbm_bt.hdev;
+
+	switch (hci_skb_pkt_type(skb)) {
+	case HCI_ACLDATA_PKT:
+		acl_hdr = (void *) skb->data;
+		handle = __le16_to_cpu(acl_hdr->handle);
+		handle = hci_handle(handle);
+		hci_dev_lock(hdev);
+		conn = hci_conn_hash_lookup_handle(hdev, handle);
+		hci_dev_unlock(hdev);
+		return conn;
+	case HCI_SCODATA_PKT:
+		sco_hdr = (void *) skb->data;
+		handle = __le16_to_cpu(sco_hdr->handle);
+		handle = hci_handle(handle);
+		hci_dev_lock(hdev);
+		conn = hci_conn_hash_lookup_handle(hdev, handle);
+		hci_dev_unlock(hdev);
+		return conn;
+	default:
+		/* Both ACL and SCO should have conn ready
+		 * But no guarantee for other types, e.g., events/cmds
+		 */
+		return NULL;
+	}
+}
+EXPORT_SYMBOL_GPL(lbm_bluetooth_hci_get_conn);

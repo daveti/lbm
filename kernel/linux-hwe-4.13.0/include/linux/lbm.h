@@ -31,6 +31,7 @@ struct lbm_mod{
 };
 
 int lbm_bluetooth_l2cap_tx_reassemble(struct sk_buff *skb);
+void *lbm_bluetooth_hci_get_conn(struct sk_buff *skb);
 
 void lbm_bluetooth_hci_debug_skb(struct skb_buff *skb);
 void lbm_bluetooth_l2cap_debug_skb(struct skb_buff *skb);
