@@ -6939,8 +6939,7 @@ static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
 		skb->lbm_bt.dir = LBM_CALL_DIR_INGRESS;
 
 		if (lbm_is_bluetooth_l2cap_debug_enabled())
-			pr_info("LBM: bluetooth l2cap recv skb/pkt [%p] with len [%d] for conn [%p]\n",
-				skb, skb->len, skb->lbm_bt.conn);
+			lbm_bluetooth_l2cap_debug_skb(skb);
 
 		ret = lbm_filter_pkt(LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP,
 				LBM_CALL_DIR_INGRESS, (void *)skb);

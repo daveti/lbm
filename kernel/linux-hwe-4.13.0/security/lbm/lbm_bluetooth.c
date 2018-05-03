@@ -15,6 +15,8 @@
 #include <net/bluetooth/hci_core.h>
 #include <net/bluetooth/l2cap.h>
 
+#define LBM_BLUETOOTH_CONN_PARAM_INVALID	0xffffffffffffffff
+
 /* BPF helpers */
 BPF_CALL_1(lbm_bluetooth_get_pkt_type, struct sk_buff *, skb)
 {
@@ -326,8 +328,11 @@ BPF_CALL_1(lbm_bluetooth_has_conn, struct sk_buff *, skb)
 	 */
 	switch (hci_skb_pkt_type(skb)) {
 	case HCI_ACLDATA_PKT:
+		if (skb->lbm_bt.conn)
+			return 1;
 	case HCI_SCODATA_PKT:
-		return 1;
+		if (skb->lbm_bt.conn)
+			return 1;
 	default:
 		return 0;
 	}
@@ -345,7 +350,12 @@ BPF_CALL_1(lbm_bluetooth_get_conn_dst, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
 	__u64 baddr = 0;
-	memcpy(&baddr, &hcon->dst, sizeof(bdaddr_t));
+
+	if (!hcon)
+		baddr = LBM_BLUETOOTH_CONN_PARAM_INVALID;
+	else
+		memcpy(&baddr, &hcon->dst, sizeof(bdaddr_t));
+
 	return baddr;
 }
 
@@ -360,6 +370,8 @@ static const struct bpf_func_proto lbm_bluetooth_get_conn_dst_proto = {
 BPF_CALL_1(lbm_bluetooth_get_conn_dst_type, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->dst_type;
 }
 
@@ -375,7 +387,12 @@ BPF_CALL_1(lbm_bluetooth_get_conn_src, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
 	__u64 baddr = 0;
-	memcpy(&baddr, &hcon->src, sizeof(bdaddr_t));
+
+	if (!hcon)
+		baddr = LBM_BLUETOOTH_CONN_PARAM_INVALID;
+	else
+		memcpy(&baddr, &hcon->src, sizeof(bdaddr_t));
+
 	return baddr;
 }
 
@@ -390,6 +407,8 @@ static const struct bpf_func_proto lbm_bluetooth_get_conn_src_proto = {
 BPF_CALL_1(lbm_bluetooth_get_conn_src_type, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->src_type;
 }
 
@@ -404,6 +423,8 @@ static const struct bpf_func_proto lbm_bluetooth_get_conn_src_type_proto = {
 BPF_CALL_1(lbm_bluetooth_get_conn_state, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->state;
 }
 
@@ -418,6 +439,8 @@ static const struct bpf_func_proto lbm_bluetooth_get_conn_state_proto = {
 BPF_CALL_1(lbm_bluetooth_get_conn_mode, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->mode;
 }
 
@@ -432,6 +455,8 @@ static const struct bpf_func_proto lbm_bluetooth_get_conn_mode_proto = {
 BPF_CALL_1(lbm_bluetooth_get_conn_type, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->type;
 }
 
@@ -446,6 +471,8 @@ static const struct bpf_func_proto lbm_bluetooth_get_conn_type_proto = {
 BPF_CALL_1(lbm_bluetooth_get_conn_role, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->role;
 }
 
@@ -460,6 +487,8 @@ static const struct bpf_func_proto lbm_bluetooth_get_conn_role_proto = {
 BPF_CALL_1(lbm_bluetooth_get_conn_key_type, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->key_type;
 }
 
@@ -474,6 +503,8 @@ static const struct bpf_func_proto lbm_bluetooth_get_conn_key_type_proto = {
 BPF_CALL_1(lbm_bluetooth_get_conn_auth_type, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->auth_type;
 }
 
@@ -488,6 +519,8 @@ static const struct bpf_func_proto lbm_bluetooth_get_conn_auth_type_proto = {
 BPF_CALL_1(lbm_bluetooth_get_conn_sec_level, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->sec_level;
 }
 
@@ -502,6 +535,8 @@ static const struct bpf_func_proto lbm_bluetooth_get_conn_sec_level_proto = {
 BPF_CALL_1(lbm_bluetooth_get_conn_io_capability, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->io_capability;
 }
 
@@ -551,7 +586,11 @@ BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_dst, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
 	__u64 baddr = 0;
-	memcpy(&baddr, &hcon->dst, sizeof(bdaddr_t));
+
+	if (!hcon)
+		baddr = LBM_BLUETOOTH_CONN_PARAM_INVALID;
+	else
+		memcpy(&baddr, &hcon->dst, sizeof(bdaddr_t));
 	return baddr;
 }
 
@@ -566,6 +605,8 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_dst_proto = {
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_dst_type, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->dst_type;
 }
 
@@ -581,7 +622,11 @@ BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_src, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
 	__u64 baddr = 0;
-	memcpy(&baddr, &hcon->src, sizeof(bdaddr_t));
+
+	if (!hcon)
+		baddr = LBM_BLUETOOTH_CONN_PARAM_INVALID;
+	else
+		memcpy(&baddr, &hcon->src, sizeof(bdaddr_t));
 	return baddr;
 }
 
@@ -596,6 +641,8 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_src_proto = {
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_src_type, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->src_type;
 }
 
@@ -610,6 +657,8 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_src_type_proto =
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_state, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->state;
 }
 
@@ -624,6 +673,8 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_state_proto = {
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_mode, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->mode;
 }
 
@@ -638,6 +689,8 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_mode_proto = {
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_type, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->type;
 }
 
@@ -652,6 +705,8 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_type_proto = {
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_role, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->role;
 }
 
@@ -666,6 +721,8 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_role_proto = {
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_key_type, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->key_type;
 }
 
@@ -680,6 +737,8 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_key_type_proto =
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_auth_type, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->auth_type;
 }
 
@@ -694,6 +753,8 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_auth_type_proto 
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_sec_level, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->sec_level;
 }
 
@@ -708,6 +769,8 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_conn_sec_level_proto 
 BPF_CALL_1(lbm_bluetooth_l2cap_get_conn_io_capability, struct sk_buff *, skb)
 {
 	struct hci_conn *hcon = (void *)skb->lbm_bt.conn;
+	if (!hcon)
+		return LBM_BLUETOOTH_CONN_PARAM_INVALID;
 	return hcon->io_capability;
 }
 
@@ -1415,7 +1478,7 @@ static void lbm_bluetooth_debug_conn(struct sk_buff *skb)
 	memcpy(&baddr_dst, &hcon->dst, sizeof(bdaddr_t));
 	memcpy(&baddr_src, &hcon->src, sizeof(bdaddr_t));
 
-	pr_info("conn [%p] - dst [%llu], dst_type [%d], src [%llu], src_type [%d], "
+	pr_info("conn [%p] - dst [%llx], dst_type [%d], src [%llx], src_type [%d], "
 		"state [%d], mode [%d], type [%d], role [%d], key_type [%d], "
 		"auth_type [%d], sec_level [%d], io_capability [%d]\n",
 		hcon,
@@ -1444,7 +1507,7 @@ void lbm_bluetooth_hci_debug_skb(struct sk_buff *skb)
 	__u16 opcode;
 
 	pr_info("LBM: bluetooth hci skb [%p] - dir [%d], len [%d], "
-		"priority [%d], type [%d] ",
+		"priority [%d], type [%d]:",
 		skb,
 		skb->lbm_bt.dir,
 		skb->len,
@@ -1516,7 +1579,7 @@ void lbm_bluetooth_l2cap_debug_skb(struct sk_buff *skb)
 	data += L2CAP_HDR_SIZE;
 
 	pr_info("LBM: bluetooth l2cap skb [%p] - dir [%d], len(skb) [%d], "
-		"priority [%d], len(pkt) [%d], cid [%d] ",
+		"priority [%d], len(pkt) [%d], cid [%d]:",
 		skb,
 		skb->lbm_bt.dir,
 		skb->len,
@@ -1525,11 +1588,11 @@ void lbm_bluetooth_l2cap_debug_skb(struct sk_buff *skb)
 
 	switch (cid) {
 	case L2CAP_CID_SIGNALING:
-		pr_info("(signaling), ");
+		pr_info("(signaling):");
 		while (len > L2CAP_CMD_HDR_SIZE) {
 			cmd = (void *) data;
 			cmd_len = le16_to_cpu(cmd->len);
-			pr_info("cmd_idx [%d], code [%d], id [%d], len(cmd) [%d], ",
+			pr_info("cmd_idx [%d], code [%d], id [%d], len(cmd) [%d]",
 				i, cmd->code, cmd->ident, cmd_len);
 			data += L2CAP_CMD_HDR_SIZE;
 			len  -= L2CAP_CMD_HDR_SIZE;
@@ -1578,6 +1641,7 @@ void *lbm_bluetooth_hci_get_conn(struct sk_buff *skb)
 		hci_dev_lock(hdev);
 		conn = hci_conn_hash_lookup_handle(hdev, handle);
 		hci_dev_unlock(hdev);
+		/* NOTE: conn could be null */
 		return conn;
 	case HCI_SCODATA_PKT:
 		sco_hdr = (void *) skb->data;
@@ -1586,6 +1650,7 @@ void *lbm_bluetooth_hci_get_conn(struct sk_buff *skb)
 		hci_dev_lock(hdev);
 		conn = hci_conn_hash_lookup_handle(hdev, handle);
 		hci_dev_unlock(hdev);
+		/* NOTE: conn could be null */
 		return conn;
 	default:
 		/* Both ACL and SCO should have conn ready

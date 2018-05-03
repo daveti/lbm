@@ -3297,7 +3297,7 @@ int hci_recv_frame(struct hci_dev *hdev, struct sk_buff *skb)
 	/* Time stamp */
 	__net_timestamp(skb);
 
-	/* daveti: LBM */
+	/* daveti: LBM hci rx filtering */
 	if (lbm_is_enabled()) {
 		skb->lbm_bt.hdev = (void *)hdev;
 		skb->lbm_bt.dir = LBM_CALL_DIR_INGRESS;
@@ -3344,6 +3344,7 @@ int hci_recv_diag(struct hci_dev *hdev, struct sk_buff *skb)
 	if (lbm_is_enabled()) {
 		skb->lbm_bt.hdev = (void *)hdev;
 		skb->lbm_bt.dir = LBM_CALL_DIR_INGRESS;
+		skb->lbm_bt.conn = NULL;
 
 		if (lbm_is_bluetooth_debug_enabled())
 			lbm_bluetooth_hci_debug_skb(skb);
@@ -3431,7 +3432,7 @@ static void hci_send_frame(struct hci_dev *hdev, struct sk_buff *skb)
 		hci_send_to_sock(hdev, skb);
 	}
 
-	/* daveti: LBM */
+	/* daveti: LBM hci tx filtering */
 	if (lbm_is_enabled()) {
 		skb->lbm_bt.hdev = (void *)hdev;
 		skb->lbm_bt.dir = LBM_CALL_DIR_EGRESS;
