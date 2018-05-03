@@ -1,10 +1,24 @@
 from enum import Enum
 
 class Type(Enum):
-    TY_INT_32 = 1
-    TY_STRING = 2
+    TY_INT_1 = 1
+    TY_INT_8 = 2
+    TY_INT_16 = 3
+    TY_INT_32 = 4
+    TY_INT_64 = 5
+    TY_STRING = 6
 
-class Symbol(object):
+class LBMType(object):
+    pass
+
+class Number(LBMType):
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return "%d" % self.value
+
+class Symbol(LBMType):
     pass
 
 class SymbolContext(Symbol):
@@ -86,7 +100,22 @@ bt_hci = {
         "ocf" :    SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_command_get_ocf"),
         "plen" :   SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_command_get_plen"),
         #"data" # needs stack and manual ASM
-    }
+    },
+    "conn" : {
+        "" :              SymbolHelper(ty=Type.TY_INT_1,  name="lbm_bluetooth_has_conn"),
+        "dst" :           SymbolHelper(ty=Type.TY_INT_64, name="lbm_bluetooth_get_conn_dst"),
+        "dst_type" :      SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_conn_dst_type"),
+        "src" :           SymbolHelper(ty=Type.TY_INT_64, name="lbm_bluetooth_get_conn_src"),
+        "src_type" :      SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_conn_src_type"),
+        "state" :         SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_conn_state"),
+        "mode" :          SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_conn_mode"),
+        "type" :          SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_conn_type"),
+        "role" :          SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_conn_role"),
+        "key_type" :      SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_conn_key_type"),
+        "auth_type" :     SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_conn_auth_type"),
+        "sec_level" :     SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_conn_sec_level"),
+        "io_capability" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_get_conn_io_capability"),
+    },
 }
 
 bt_l2cap = {
@@ -94,17 +123,17 @@ bt_l2cap = {
     "len" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_len"),
 
     "conn" : {
-        "dst" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_dst"),
-        "dst_type" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_dst_type"),
-        "src" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_src"),
-        "src_type" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_src_type"),
-        "state" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_state"),
-        "mode" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_mode"),
-        "type" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_type"),
-        "role" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_role"),
-        "key_type" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_key_type"),
-        "auth_type" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_auth_type"),
-        "sec_level" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_sec_level"),
+        "dst" :           SymbolHelper(ty=Type.TY_INT_64, name="lbm_bluetooth_l2cap_get_conn_dst"),
+        "dst_type" :      SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_dst_type"),
+        "src" :           SymbolHelper(ty=Type.TY_INT_64, name="lbm_bluetooth_l2cap_get_conn_src"),
+        "src_type" :      SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_src_type"),
+        "state" :         SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_state"),
+        "mode" :          SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_mode"),
+        "type" :          SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_type"),
+        "role" :          SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_role"),
+        "key_type" :      SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_key_type"),
+        "auth_type" :     SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_auth_type"),
+        "sec_level" :     SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_sec_level"),
         "io_capability" : SymbolHelper(ty=Type.TY_INT_32, name="lbm_bluetooth_l2cap_get_conn_io_capability"),
     },
     "sig" : {
@@ -158,6 +187,9 @@ def lookup_symbol(symbol):
             return None
 
         level = level[obj]
+
+    if isinstance(level, dict) and "" in level:
+        return level[""]
 
     if not isinstance(level, Symbol):
         return None

@@ -1,5 +1,6 @@
 import pprint
 from ir import *
+from symbol import *
 
 class Backend(object):
     pass
@@ -133,12 +134,12 @@ class CBackend(Backend):
                     elif op == "GTE": jumpkind = "BPF_JGE"
                     else: assert 0
 
-                    if isinstance(lhs, IRTemp) and isinstance(rhs, int):
+                    if isinstance(lhs, IRTemp) and isinstance(rhs, Number):
                         tmp = temp_map[lhs]
                         label = self.new_label()
 
                         self.EMIT("", "BPF_MOV64_IMM(%s, 1)" % (tmp_ref))
-                        self.EMIT("", "BPF_JMP_IMM(%s, %s, %d, %s)" % (jumpkind, tmp, rhs, label))
+                        self.EMIT("", "BPF_JMP_IMM(%s, %s, %d, %s)" % (jumpkind, tmp, rhs.value, label))
                         self.EMIT("", "BPF_MOV64_IMM(%s, 0)" % (tmp_ref))
                         self.EMIT(label, "")
                     elif isinstance(lhs, IRTemp) and isinstance(rhs, IRTemp):
@@ -231,8 +232,8 @@ class CBackend(Backend):
                 self.EMIT("", "BPF_JMP_A(%s)" % (end_procedure))
                 self.EMIT(bad_label, "BPF_MOV64_IMM(%s, 0)" % (tmp_ref))
                 self.EMIT(end_procedure, "")
-            elif isinstance(src, int):
-                self.EMIT("", "BPF_LD_IMM64(%s, 0x%016xUL)" % (tmp_ref, src))
+            elif isinstance(src, Number):
+                self.EMIT("", "BPF_LD_IMM64(%s, 0x%016xUL)" % (tmp_ref, src.value))
             else:
                 raise ValueError("Unsupported IR: " + str(type(src)));
 
@@ -305,7 +306,7 @@ class CBackend(Backend):
 
                 # Minus 1 as PC points to the next instruction
                 delta = label_pc - pc - 1
-                
+
                 if delta <= 0:
                     raise ValueError("PC-relative branch is negative or zero: address %d" % pc)
 

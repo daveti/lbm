@@ -14,26 +14,26 @@ class FlattenExpressions(Transformer):
 
 class AtomToIntegral(Transformer):
     def number(self, args):
-        value = 0
+        number = Number(0)
 
         if args[0].type == "DEC_NUMBER":
-            value = int(args[0])
+            number.value = int(args[0])
         elif args[0].type == "HEX_NUMBER":
-            value = int(args[0], 16)
+            number.value = int(args[0], 16)
         else:
             raise ValueError("Unknown number subtype")
 
-        if value < 0:
+        if number.value < 0:
             e = args[0]
             error = common.generate_error(e.line, e.column, "signed-integers not supported")
             raise ValueError(error)
 
-        if value & (2**64-1) != value:
+        if number.value & (2**64-1) != number.value:
             e = args[0]
             error = common.generate_error(e.line, e.column, "integer is beyond the maximum integral type (64-bits)")
             raise ValueError(error)
 
-        return value
+        return number
 
     def string(self, args):
         return str(args[0])[1:-1]
@@ -125,8 +125,8 @@ def lbm_tree_to_ir(tree):
                     continue
                 else:
                     raise ValueError("Unsupported symbol type: %s" % type(lhs))
-            elif isinstance(lhs, int):
-                if lhs > (2**32-1):
+            elif isinstance(lhs, Number):
+                if lhs.value > (2**32-1):
                     lhs_tmp = IRTemp(temp_count)
                     temp_count += 1
 
@@ -148,8 +148,8 @@ def lbm_tree_to_ir(tree):
                     rhs = rhs_tmp
                 else:
                     raise ValueError("Unsupported symbol type: %s" % type(rhs))
-            elif isinstance(rhs, int):
-                if rhs > (2**32-1):
+            elif isinstance(rhs, Number):
+                if rhs.value > (2**32-1):
                     rhs_tmp = IRTemp(temp_count)
                     temp_count += 1
 
