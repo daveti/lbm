@@ -9,7 +9,7 @@
 #include <linux/version.h>
 #include "libbpf.h"
 
-#define LOG_BUF_SIZE		4096
+#define LOG_BUF_SIZE		(1024*1024)
 
 #ifndef __NR_bpf
 # if defined(__i386__)
@@ -39,10 +39,7 @@ static inline int sys_bpf(enum bpf_cmd cmd, union bpf_attr *attr,
 }
 
 char bpf_log_buf[LOG_BUF_SIZE];
-char pathname[] = "/sys/fs/bpf/lbm_pin";	/* Should be updated accordingly */
 char license[] = "GPL";
-char bpf_name[] = "daveti";	/* Should be updated accrodingly */
-
 
 /* Change the eBPF prog here */
 struct bpf_insn prog[] = {
@@ -56,10 +53,25 @@ struct bpf_insn prog[] = {
 
 
 
-int main(void)
+int main(int argc, char * argv[])
 {
 	int prog_fd;
 	union bpf_attr attr;
+
+        if (getuid() != 0) {
+          printf("You must be root to load LBM programs\n");
+          return 1;
+        }
+
+        if(argc < 2) {
+          printf("%s: bpf_name\n", argv[0]);
+          return 1;
+        }
+
+        char * bpf_name = argv[1];
+        char pathname[256];
+
+        snprintf(pathname, sizeof(pathname)-1, "%s/%s", "/sys/fs/bpf", bpf_name);
 
 	memset(&attr, 0, sizeof(attr));
 	attr.lbm.prog_type = BPF_PROG_TYPE_LBM,
@@ -76,8 +88,16 @@ int main(void)
 	attr.lbm.bpf_name = ptr_to_u64(bpf_name),
 
 	prog_fd = sys_bpf(BPF_PROG_LOAD_LBM, &attr, sizeof(attr));
-	printf("eBPF is loaded into fd [%d], with logs:\n", prog_fd);
-	printf("%s\n", bpf_log_buf);
+
+        if (strlen(bpf_log_buf) > 0) {
+          printf("Logs:\n%s\n", bpf_log_buf);
+        }
+
+        if (prog_fd < 0) {
+          perror("eBPF FAILED to load");
+        } else {
+          printf("eBPF loaded %s\n", bpf_name);
+        }
 
 	return 0;
 }
