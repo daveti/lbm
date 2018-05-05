@@ -3,6 +3,14 @@
 
 #include <linux/bpf.h>
 
+#define offsetof(TYPE, MEMBER)	((size_t)&((TYPE *)0)->MEMBER)
+
+// Not supported in 4.13
+//#define BPF_JLT  0xa0
+//#define BPF_JLE  0xb0
+//#define BPF_JSLT 0xc0
+//#define BPF_JSLE 0xd0
+
 #define BPF_CALL_FUNC(FUNC) \
 	((struct bpf_insn) {                                    \
 		.code = BPF_JMP | BPF_CALL | BPF_K,				\
