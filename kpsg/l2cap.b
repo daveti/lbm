@@ -64,7 +64,7 @@ BPF_CALL_FUNC(BPF_FUNC_lbm_bluetooth_l2cap_sig_cmd_data_load_bytes_idx),	/* igno
 BPF_MOV64_REG(BPF_REG_1, BPF_REG_9),			/* recover the ctx */
 
 /* Check for pending (LE) */
-BPF_LDX_MEM(BPF_H, BPF_REG_6, BPF_REG_10, -1),		/* save the result into r6 */
+BPF_LDX_MEM(BPF_H, BPF_REG_6, BPF_REG_10, -2),		/* save the result into r6 */
 BPF_JMP_IMM(BPF_JEQ, BPF_REG_6, 0x0400, 2),		/* if result == 0x0400: goto PC+2; */
 BPF_MOV64_IMM(BPF_REG_0, 0),                            /* else: allow the pkt */
 BPF_EXIT_INSN(),					/* ret 0 */

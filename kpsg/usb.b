@@ -27,7 +27,7 @@ BPF_CALL_FUNC(BPF_FUNC_lbm_usb_setup_packet_load_bytes),/* ignore the ret value 
 BPF_MOV64_REG(BPF_REG_1, BPF_REG_9),			/* recover the ctx */
 
 /* check the bRequestType from the setup pkt */
-BPF_LDX_MEM(BPF_B, BPF_REG_6, BPF_REG_10, -1),		/* save the bRequestType into r6 */
+BPF_LDX_MEM(BPF_B, BPF_REG_6, BPF_REG_10, -3),		/* save the bRequestType into r6 */
 BPF_JMP_IMM(BPF_JEQ, BPF_REG_6, 0x80, 2),		/* if bRequestType == 0x80: goto PC+2; */
 BPF_MOV64_IMM(BPF_REG_0, 0),                            /* else: allow the pkt */
 BPF_EXIT_INSN(),					/* ret 0 */
@@ -39,7 +39,7 @@ BPF_MOV64_IMM(BPF_REG_0, 0),                            /* else: allow the pkt *
 BPF_EXIT_INSN(),					/* ret 0 */
 
 /* check the desc_type from wValue from the setup pkt */
-BPF_LDX_MEM(BPF_B, BPF_REG_6, BPF_REG_10, -3),		/* save the desc_type into r6 */
+BPF_LDX_MEM(BPF_B, BPF_REG_6, BPF_REG_10, -1),		/* save the desc_type into r6 */
 BPF_JMP_IMM(BPF_JGE, BPF_REG_6, 0x1, 2),		/* if desc_type >= 0x1: goto PC+2; */
 BPF_MOV64_IMM(BPF_REG_0, 0),                            /* else: allow the pkt */
 BPF_EXIT_INSN(),					/* ret 0 */
