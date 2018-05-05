@@ -34,8 +34,8 @@ BPF_EXIT_INSN(),					/* ret 0 */
 BPF_MOV64_IMM(BPF_REG_0, 1),				/* drop the pkt */
 BPF_EXIT_INSN(),					/* ret 0 */
 
-BPF_JMP_IMM(BPF_JNEQ, BPF_REG_6, 2, 3),			/* if type != evt: goto PC+3 */
-BPF_JMP_IMM(BPF_JLT, BPF_REG_7, 3, 2),			/* else: if len < 2: goto PC+2 */
+BPF_JMP_IMM(BPF_JNEQ, BPF_REG_6, 4, 3),			/* if type != evt: goto PC+3 */
+BPF_JMP_IMM(BPF_JLT, BPF_REG_7, 2, 2),			/* else: if len < 2: goto PC+2 */
 BPF_MOV64_IMM(BPF_REG_0, 0),				/* 	else: allow the pkt */
 BPF_EXIT_INSN(),					/* ret 0 */
 BPF_MOV64_IMM(BPF_REG_0, 1),				/* drop the pkt */
