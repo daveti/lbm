@@ -24,6 +24,7 @@
 #include <linux/timekeeping.h>
 #include <linux/time64.h>
 #include <linux/string.h>
+#include <linux/timex.h>
 #include <linux/lbm.h>
 #include "lbm_usb.h"
 #include "lbm_bluetooth.h"
@@ -164,7 +165,7 @@ static inline void perf_start(struct lbm_perf_time *t)
 		getnstimeofday64(&t->start_ts);
 		break;
 	case LBM_MBM_TSC:
-		t->start_tsc = rdtsc();	/* daveti: should we do ordered? */
+		t->start_tsc = get_cycles();	/* daveti: should we do ordered? */
 		break;
 	default:
 		pr_err("LBM: not supported mbm option\n");
@@ -172,7 +173,7 @@ static inline void perf_start(struct lbm_perf_time *t)
 	}
 }
 
-static inline unsigned long perf_end(struct lbm_perf_time *t)
+static inline unsigned long long perf_end(struct lbm_perf_time *t)
 {
 	switch (lbm_perf_option) {
 	case LBM_MBM_MS:
@@ -182,7 +183,7 @@ static inline unsigned long perf_end(struct lbm_perf_time *t)
 		getnstimeofday64(&t->end_ts);
 		return LBM_MBM_SUB_TS((t->start_ts), (t->end_ts));
 	case LBM_MBM_TSC:
-		t->end_tsc = rdtsc();	/* daveti: should we do ordered? */
+		t->end_tsc = get_cycles();	/* daveti: should we do ordered? */
 		return ((t->end_tsc)-(t->start_tsc));
 	default:
 		pr_err("LBM: not supported mbm option\n");
@@ -190,20 +191,21 @@ static inline unsigned long perf_end(struct lbm_perf_time *t)
 	}
 }
 
-static inline void perf_print(unsigned long diff, int subsys, int dir)
+static inline void perf_print(unsigned long long diff, int subsys, int dir)
 {
 	switch (lbm_perf_option) {
 	case LBM_MBM_MS:
-		pr_info("lbm-perf: %s took [%lu] us for subsys [%d] and dir [%d]\n",
+		pr_info("lbm-perf: %s took [%llu] us for subsys [%d] and dir [%d]\n",
 			__func__, diff, subsys, dir);
 		break;
 	case LBM_MBM_NS:
-		pr_info("lbm-perf: %s took [%lu] ns for subsys [%d] and dir [%d]\n",
+		pr_info("lbm-perf: %s took [%llu] ns for subsys [%d] and dir [%d]\n",
 			__func__, diff, subsys, dir);
 		break;
 	case LBM_MBM_TSC:
-		pr_info("lbm-perf: %s took [%lu] cycles for subsys [%d] and dir [%d]\n",
-			__func__, diff, subsys, dir);
+		pr_info("lbm-perf: %s took [%llu] cycles ([%llu] ns) for subsys [%d] and dir [%d]\n",
+			__func__, diff, native_sched_clock_from_tsc(diff),
+			subsys, dir);
 		break;
 	default:
 		pr_err("LBM: not supported mbm option\n");
@@ -1045,6 +1047,7 @@ static ssize_t lbm_sysfs_perf_option_write(struct file *file, const char __user 
 {
 	char *data;
 	ssize_t res;
+	int rv, value;
 
 	if (datalen >= PAGE_SIZE)
 		datalen = PAGE_SIZE - 1;
@@ -1063,7 +1066,14 @@ static ssize_t lbm_sysfs_perf_option_write(struct file *file, const char __user 
 	/* Strip the newline */
 	data = strim(data);
 
-	res = update_boolean_value(data, &lbm_perf_option);
+	rv = kstrtoint(val, 0, &value);
+	if (rv < 0)
+		goto perf_option_write_out;
+	if ((value >= LBM_MBM_MS) && (value <= LBM_MBM_TSC)) {
+		lbm_perf_option = value;
+		res = 0;
+	}
+		
 	if (!res)
 		return datalen;
 
@@ -1592,7 +1602,7 @@ static const struct file_operations lbm_sysfs_perf_ops = {
 	.llseek = generic_file_llseek,
 };
 
-static const struct file_operations lbm_sysfs_perf_options_ops = {
+static const struct file_operations lbm_sysfs_perf_option_ops = {
 	.read = lbm_sysfs_perf_option_read,
 	.write = lbm_sysfs_perf_option_write,
 	.llseek = generic_file_llseek,
@@ -1659,7 +1669,7 @@ int lbm_init_sysfs(void)
 		goto init_sysfs_failed;
 
 	lbm_sysfs_perf_option = securityfs_create_file("perf_option", 0600, lbm_sysfs_dir,
-				NULL, &lbm_sysfs_perf_ops);
+				NULL, &lbm_sysfs_perf_option_ops);
 	if (IS_ERR(lbm_sysfs_perf_option))
 		goto init_sysfs_failed;
 
