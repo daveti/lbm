@@ -59,7 +59,7 @@ static int __init lbsw_init(void)
 {
 	pr_info("lbsw: Entering: %s\n", __func__);
 	snprintf(lbsw.name, LBM_MOD_NAME_LEN, "%s", LUM_NAME);
-	lbsw.lbm_ingress_hook = lbsw_filter_urb;
+	lbsw.lbm_egress_hook = lbsw_filter_urb;
 
 	/* Register this lum */
 	if (lbm_register_mod(&lbsw))

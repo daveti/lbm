@@ -22,6 +22,8 @@
 #include <linux/string.h>
 #include <linux/rculist.h>
 #include <linux/timekeeping.h>
+#include <linux/time64.h>
+#include <linux/string.h>
 #include <linux/lbm.h>
 #include "lbm_usb.h"
 #include "lbm_bluetooth.h"
@@ -31,7 +33,7 @@
 #define LBM_MOD_NUM_MAX			32	/* not used for now */
 #define LBM_MOD_ACT_ADD			0
 #define LBM_MOD_ACT_DEL			1
-#define LBM_TMP_BUF_LEN			256
+#define LBM_TMP_BUF_LEN			1024
 #define LBM_RX				LBM_CALL_DIR_INGRESS	/* 0 */
 #define LBM_TX				LBM_CALL_DIR_EGRESS	/* 1 */
 #define LBM_STAT_TX_CNT			LBM_TX			/* 1 */
@@ -43,6 +45,9 @@
 #define LBM_MBM_SUB_TV(s,e)		\
 	((e.tv_sec*LBM_MBM_SEC_IN_USEC+e.tv_usec) - \
 	(s.tv_sec*LBM_MBM_SEC_IN_USEC+s.tv_usec))
+#define LBM_MBM_SUB_TS(s,e)		\
+	((e.tv_sec*NSEC_PER_SEC+e.tv_nsec) -	\
+	(s.tv_sec*NSEC_PER_SEC+s.tv_nsec))
 
 /* Global vars */
 static struct hlist_head lbm_bpf_ingress_db[LBM_SUB_SYS_NUM_MAX];
@@ -81,6 +86,7 @@ static int lbm_bluetooth_debug;
 static int lbm_bluetooth_l2cap_debug;
 static int lbm_nfc_debug;
 static int lbm_stats_enable;
+static int lbm_perf_ns = 1;
 
 /* BPF map should be working so we literally do not need these */
 static unsigned long lbm_stats_db[LBM_SUB_SYS_NUM_MAX][LBM_STAT_NUM_MAX];
@@ -135,6 +141,22 @@ struct bpf_verifier_ops lbm_nfc_prog_ops = {
 const struct bpf_verifier_ops lbm_prog_ops;
 
 /* Helpers */
+static inline const char *get_subsys_str(int idx)
+{
+	switch (idx) {
+	case LBM_SUBSYS_INDEX_USB:
+		return "usb";
+	case LBM_SUBSYS_INDEX_BLUETOOTH:
+		return "bluetooth";
+	case LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP:
+		return "blueooth-l2cap";
+	case LBM_SUBSYS_INDEX_NFC:
+		return "nfc";
+	default:
+		return "n/a";
+	}
+}
+
 static inline int check_calldir(int dir)
 {
 	switch (dir) {
@@ -203,6 +225,7 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 	struct lbm_bpf_mod_info *p;
 	int res;
 	struct timeval start_tv, end_tv;
+	struct timespec64 start_ts, end_ts;
 
 	if (!lbm_enable)
 		return LBM_RES_ALLOW;
@@ -222,8 +245,12 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 	}
 
 	/* Perf start */
-	if (lbm_perf_enable[subsys][dir])
-		do_gettimeofday(&start_tv);
+	if (lbm_perf_enable[subsys][dir]) {
+		if (lbm_perf_ns)
+			getnstimeofday64(&start_ts);
+		else
+			do_gettimeofday(&start_tv);
+	}
 
 	/* Run the damn bpf/mod
 	 * Current policy is to stop until we hit the first drop.
@@ -302,9 +329,15 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 filter_pkt_early_ret:
 	/* Perf ends */
 	if (lbm_perf_enable[subsys][dir]) {
-		do_gettimeofday(&end_tv);
-		pr_info("lbm-perf: %s took [%lu] us for subsys [%d] and dir [%d]\n", __func__,
-                        LBM_MBM_SUB_TV(start_tv, end_tv), subsys, dir);
+		if (lbm_perf_ns) {
+			getnstimeofday64(&end_ts);
+			pr_info("lbm-perf: %s took [%lu] ns for subsys [%d] and dir [%d]\n", __func__,
+				LBM_MBM_SUB_TS(start_ts, end_ts), subsys, dir);
+		} else {
+			do_gettimeofday(&end_tv);
+			pr_info("lbm-perf: %s took [%lu] us for subsys [%d] and dir [%d]\n", __func__,
+				LBM_MBM_SUB_TV(start_tv, end_tv), subsys, dir);
+		}
 	}
 
 	if (lbm_stats_enable && (res == LBM_RES_DROP)) {
@@ -360,6 +393,8 @@ static int find_bpf_given_name_db(char *name, struct hlist_head *db)
 
 	rcu_read_lock();
 	hlist_for_each_entry_rcu(p, db, entry) {
+		if (likely(strlen(p->bpf_name) != strlen(name)))
+			continue;
 		if (unlikely(strncasecmp(p->bpf_name, name, strlen(p->bpf_name)) == 0)) {
 			exist = 1;
 			break;
@@ -436,9 +471,11 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 	/* Add into DBs */
 	if ((prog->aux->lbm_call_dir == LBM_CALL_DIR_INGRESS) ||
 		(prog->aux->lbm_call_dir == LBM_CALL_DIR_INEGRESS)) {
-		spin_lock_irqsave(&lbm_bpf_ingress_db_lock, flags);
+		//spin_lock_irqsave(&lbm_bpf_ingress_db_lock, flags);
+		spin_lock_bh(&lbm_bpf_ingress_db_lock);
 		hlist_add_tail_rcu(&p->entry, &lbm_bpf_ingress_db[prog->aux->lbm_subsys_idx]);
-		spin_unlock_irqrestore(&lbm_bpf_ingress_db_lock, flags);
+		//spin_unlock_irqrestore(&lbm_bpf_ingress_db_lock, flags);
+		spin_unlock_bh(&lbm_bpf_ingress_db_lock);
 		bpf_prog_inc(prog);
 		if (lbm_main_debug)
 			pr_info("LBM: bpf [%s] added into bpf ingress db for subsys [%d]\n",
@@ -446,9 +483,11 @@ int lbm_load_bpf_prog(struct bpf_prog *prog, const char __user *name)
 	}
 	if ((prog->aux->lbm_call_dir == LBM_CALL_DIR_EGRESS) ||
 		(prog->aux->lbm_call_dir == LBM_CALL_DIR_INEGRESS)) {
-		spin_lock_irqsave(&lbm_bpf_egress_db_lock, flags);
+		//spin_lock_irqsave(&lbm_bpf_egress_db_lock, flags);
+		spin_lock_bh(&lbm_bpf_egress_db_lock);
 		hlist_add_tail_rcu(&p->entry, &lbm_bpf_egress_db[prog->aux->lbm_subsys_idx]);
-		spin_unlock_irqrestore(&lbm_bpf_egress_db_lock, flags);
+		//spin_unlock_irqrestore(&lbm_bpf_egress_db_lock, flags);
+		spin_unlock_bh(&lbm_bpf_egress_db_lock);
 		bpf_prog_inc(prog);
 		if (lbm_main_debug)
 			pr_info("LBM: bpf [%s] added into bpf egress db for subsys [%d]\n",
@@ -468,6 +507,8 @@ static int find_mod_given_name(char *name)
 
 	rcu_read_lock();
 	hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
+		if (likely(strlen(p->mod->name) != strlen(name)))
+			continue;
 		if (unlikely(strncasecmp(p->mod->name, name, strlen(p->mod->name)) == 0)) {
 			exist = 1;
 			break;
@@ -494,7 +535,7 @@ int lbm_register_mod(struct lbm_mod *mod)
 		return -1;
 	}
 
-	if (!check_subsys(mod->subsys_index)) {
+	if (check_subsys(mod->subsys_index)) {
 		pr_err("LBM: invalid subsys index [%d]\n", mod->subsys_index);
 		return -1;
 	}
@@ -513,10 +554,12 @@ int lbm_register_mod(struct lbm_mod *mod)
 	p->mod = mod;
 
 	/* Add this mod into DB */
-	spin_lock_irqsave(&lbm_mod_db_lock, flags);
+	//spin_lock_irqsave(&lbm_mod_db_lock, flags);
+	spin_lock(&lbm_mod_db_lock);
 	hlist_add_tail_rcu(&p->entry, &lbm_mod_db);
 	lbm_mod_num++;
-	spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
+	//spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
+	spin_unlock(&lbm_mod_db_lock);
 	if (lbm_main_debug)
 		pr_info("LBM: mod [%s] added into the mod db\n", mod->name);
 
@@ -531,9 +574,11 @@ int lbm_register_mod(struct lbm_mod *mod)
 		q->mod = mod;
 		q->lbm_hook = mod->lbm_ingress_hook;
 
-		spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
+		//spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
+		spin_lock(&lbm_mod_ingress_db_lock);
 		hlist_add_tail_rcu(&q->entry, &lbm_mod_ingress_db[mod->subsys_index]);
-		spin_unlock_irqrestore(&lbm_mod_ingress_db_lock, flags);
+		//spin_unlock_irqrestore(&lbm_mod_ingress_db_lock, flags);
+		spin_unlock(&lbm_mod_ingress_db_lock);
 		if (lbm_main_debug)
 			pr_info("LBM: mod [%s] added into mod ingress db for subsys [%d]\n",
 				mod->name, mod->subsys_index);
@@ -549,9 +594,11 @@ int lbm_register_mod(struct lbm_mod *mod)
 		q->mod = mod;
 		q->lbm_hook = mod->lbm_egress_hook;
 
-		spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
+		//spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
+		spin_lock(&lbm_mod_egress_db_lock);
 		hlist_add_tail_rcu(&q->entry, &lbm_mod_egress_db[mod->subsys_index]);
-		spin_unlock_irqrestore(&lbm_mod_egress_db_lock, flags);
+		//spin_unlock_irqrestore(&lbm_mod_egress_db_lock, flags);
+		spin_unlock(&lbm_mod_egress_db_lock);
 		if (lbm_main_debug)
 			pr_info("LBM: mod [%s] added into mod egress db for subsys [%d]\n",
 				mod->name, mod->subsys_index);
@@ -590,37 +637,48 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 
 	/* Remove this from ingress and egress DBs */
 	if (mod->lbm_ingress_hook) {
-		spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
+		//spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
+		spin_lock(&lbm_mod_ingress_db_lock);
 		hlist_for_each_entry_rcu(q, &lbm_mod_ingress_db[mod->subsys_index], entry) {
+			if (likely(strlen(q->mod->name) != strlen(mod->name)))
+				continue;
 			if (strncasecmp(q->mod->name, mod->name, strlen(q->mod->name)) == 0) {
 				hlist_del_rcu(&q->entry);
 				kfree_rcu(q, rcu);
 				break;
 			}
 		}
-		spin_unlock_irqrestore(&lbm_mod_ingress_db_lock, flags);
+		//spin_unlock_irqrestore(&lbm_mod_ingress_db_lock, flags);
+		spin_unlock(&lbm_mod_ingress_db_lock);
 		if (lbm_main_debug)
 			pr_info("LBM: mod [%s] removed from mod ingress db for subsys [%d]\n",
 				mod->name, mod->subsys_index);
 	}
 	if (mod->lbm_egress_hook) {
-		spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
+		//spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
+		spin_lock(&lbm_mod_egress_db_lock);
 		hlist_for_each_entry_rcu(q, &lbm_mod_egress_db[mod->subsys_index], entry) {
+			if (likely(strlen(q->mod->name) != strlen(mod->name)))
+				continue;
 			if (strncasecmp(q->mod->name, mod->name, strlen(q->mod->name)) == 0) {
 				hlist_del_rcu(&q->entry);
 				kfree_rcu(q, rcu);
 				break;
 			}
 		}
-		spin_unlock_irqrestore(&lbm_mod_egress_db_lock, flags);
+		//spin_unlock_irqrestore(&lbm_mod_egress_db_lock, flags);
+		spin_unlock(&lbm_mod_egress_db_lock);
 		if (lbm_main_debug)
 			pr_info("LBM: mod [%s] removed from mod egress db for subsys [%d]\n",
 				mod->name, mod->subsys_index);
 	}
 
 	/* Remove this mod from DB */
-	spin_lock_irqsave(&lbm_mod_db_lock, flags);
+	//spin_lock_irqsave(&lbm_mod_db_lock, flags);
+	spin_lock(&lbm_mod_db_lock);
 	hlist_for_each_entry_rcu(p, &lbm_mod_db, entry) {
+		if (likely(strlen(p->mod->name) != strlen(mod->name)))
+			continue;
 		if (strncasecmp(p->mod->name, mod->name, strlen(p->mod->name)) == 0) {
 			hlist_del_rcu(&p->entry);
 			kfree_rcu(p, rcu);
@@ -628,7 +686,8 @@ int lbm_deregister_mod(struct lbm_mod *mod)
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
+	//spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
+	spin_unlock(&lbm_mod_db_lock);
 	if (lbm_main_debug)
 		pr_info("LBM: mod [%s] removed from mod db\n", mod->name);
 
@@ -694,6 +753,9 @@ static ssize_t lbm_sysfs_debug_write(struct file *file, const char __user *buf,
 		goto debug_write_out;
 	}
 
+	/* Strip the newline */
+	data = strim(data);
+
 	/* Write follows the same syntax of read output */
 	while ((p = strsep(&data, ",")) != NULL) {
 		if (strncmp(p, "main:", 5) == 0)
@@ -753,6 +815,9 @@ static ssize_t lbm_sysfs_enable_write(struct file *file, const char __user *buf,
 		res = PTR_ERR(data);
 		goto enable_write_out;
 	}
+
+	/* Strip the newline */
+	data = strim(data);
 
 	res = update_boolean_value(data, &lbm_enable);
 	if (!res)
@@ -814,6 +879,9 @@ static ssize_t lbm_sysfs_stats_write(struct file *file, const char __user *buf,
 		goto stats_write_out;
 	}
 
+	/* Strip the newline */
+	data = strim(data);
+
 	res = update_boolean_value(data, &lbm_stats_enable);
 	if (!res) {
 		if (lbm_stats_enable)
@@ -866,6 +934,9 @@ static ssize_t lbm_sysfs_perf_write(struct file *file, const char __user *buf,
 		res = PTR_ERR(data);
 		goto perf_write_out;
 	}
+
+	/* Strip the newline */
+	data = strim(data);
 
 	/* Write follows this syntax:
 	 * usb:tx:0,usb:rx:1,bluetooth:rx:1,...
@@ -927,9 +998,12 @@ static int remove_mod_ingress_given_name(char *name)
 	int i;
 
 	res = -1;
-	spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
+	//spin_lock_irqsave(&lbm_mod_ingress_db_lock, flags);
+	spin_lock(&lbm_mod_ingress_db_lock);
 	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
 		hlist_for_each_entry_rcu(q, &lbm_mod_ingress_db[i], entry) {
+			if (likely(strlen(q->mod->name) != strlen(name)))
+				continue;
 			if (strncasecmp(q->mod->name, name, strlen(q->mod->name)) == 0) {
 				hlist_del_rcu(&q->entry);
 				kfree_rcu(q, rcu);
@@ -942,7 +1016,8 @@ static int remove_mod_ingress_given_name(char *name)
 		}
 	}
 ingress_found_mod:
-	spin_unlock_irqrestore(&lbm_mod_ingress_db_lock, flags);
+	//spin_unlock_irqrestore(&lbm_mod_ingress_db_lock, flags);
+	spin_unlock(&lbm_mod_ingress_db_lock);
 	return res;
 }
 
@@ -954,9 +1029,12 @@ static int remove_mod_egress_given_name(char *name)
 	int i;
 
 	res = -1;
-	spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
+	//spin_lock_irqsave(&lbm_mod_egress_db_lock, flags);
+	spin_lock(&lbm_mod_egress_db_lock);
 	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
 		hlist_for_each_entry_rcu(q, &lbm_mod_egress_db[i], entry) {
+			if (likely(strlen(q->mod->name) != strlen(name)))
+				continue;
 			if (strncasecmp(q->mod->name, name, strlen(q->mod->name)) == 0) {
 				hlist_del_rcu(&q->entry);
 				kfree_rcu(q, rcu);
@@ -969,7 +1047,8 @@ static int remove_mod_egress_given_name(char *name)
 		}
 	}
 ingress_found_mod:
-	spin_unlock_irqrestore(&lbm_mod_egress_db_lock, flags);
+	//spin_unlock_irqrestore(&lbm_mod_egress_db_lock, flags);
+	spin_unlock(&lbm_mod_egress_db_lock);
 	return res;
 }
 
@@ -997,6 +1076,9 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 		goto mod_write_out;
 	}
 
+	/* Strip the newline */
+	data = strim(data);
+
 	/* Only allow rm
 	 * Syntax: "rm:modname1,rm:modname2,..."
 	 */
@@ -1009,8 +1091,11 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 			remove_mod_egress_given_name(name);
 
 			/* Remove this mod from DB */
-			spin_lock_irqsave(&lbm_mod_db_lock, flags);
+			//spin_lock_irqsave(&lbm_mod_db_lock, flags);
+			spin_lock(&lbm_mod_db_lock);
 			hlist_for_each_entry_rcu(q, &lbm_mod_db, entry) {
+				if (likely(strlen(q->mod->name) != strlen(name)))
+					continue;
 				if (strncasecmp(q->mod->name, name, strlen(q->mod->name)) == 0) {
 					hlist_del_rcu(&q->entry);
 					kfree_rcu(q, rcu);
@@ -1020,7 +1105,8 @@ static ssize_t lbm_sysfs_mod_write(struct file *file, const char __user *buf,
 					break;
 				}
 			}
-			spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
+			//spin_unlock_irqrestore(&lbm_mod_db_lock, flags);
+			spin_unlock(&lbm_mod_db_lock);
 		} else {
 			pr_err("LBM: %s - unsupported modules option [%s]\n",
 				__func__, p);
@@ -1047,7 +1133,8 @@ static ssize_t lbm_sysfs_bpf_ingress_read(struct file *filp,
 
 	rcu_read_lock();
 	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
-		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "subsys [%d]: ", i);
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s (%d): ",
+			get_subsys_str(i),  i);
 		hlist_for_each_entry_rcu(p, &lbm_bpf_ingress_db[i], entry) {
 			len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s ",
 					p->bpf_name);
@@ -1083,6 +1170,9 @@ static ssize_t lbm_sysfs_bpf_ingress_write(struct file *file, const char __user 
 		goto bpf_ingress_write_out;
 	}
 
+	/* Strip the newline */
+	data = strim(data);
+
 	/* Only allow rm
 	 * Syntax: "rm:bpfname1,rm:bpfname2,..."
 	 */
@@ -1091,9 +1181,12 @@ static ssize_t lbm_sysfs_bpf_ingress_write(struct file *file, const char __user 
 		if (strncmp(p, "rm:", 3) == 0) {
 			name = p + 3;
 			/* Remove this from DB */
-			spin_lock_irqsave(&lbm_bpf_ingress_db_lock, flags);
+			//spin_lock_irqsave(&lbm_bpf_ingress_db_lock, flags);
+			spin_lock(&lbm_bpf_ingress_db_lock);
 			for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
 				hlist_for_each_entry_rcu(q, &lbm_bpf_ingress_db[i], entry) {
+					if (likely(strlen(q->bpf_name) != strlen(name)))
+						continue;
 					if (strncasecmp(q->bpf_name, name, strlen(q->bpf_name)) == 0) {
 						bpf_prog_sub(q->bpf, 1);
 						hlist_del_rcu(&q->entry);
@@ -1106,7 +1199,8 @@ static ssize_t lbm_sysfs_bpf_ingress_write(struct file *file, const char __user 
 				}
 			}
 bpf_ingress_write_found:
-			spin_unlock_irqrestore(&lbm_bpf_ingress_db_lock, flags);
+			//spin_unlock_irqrestore(&lbm_bpf_ingress_db_lock, flags);
+			spin_unlock(&lbm_bpf_ingress_db_lock);
 		} else {
 			pr_err("LBM: %s - unsupported bpf ingress option [%s]\n",
 				__func__, p);
@@ -1133,7 +1227,8 @@ static ssize_t lbm_sysfs_bpf_egress_read(struct file *filp,
 
 	rcu_read_lock();
 	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
-		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "subsys [%d]: ", i);
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s (%d): ",
+			get_subsys_str(i), i);
 		hlist_for_each_entry_rcu(p, &lbm_bpf_egress_db[i], entry) {
 			len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s ",
 					p->bpf_name);
@@ -1155,6 +1250,9 @@ static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *
 	struct lbm_bpf_mod_info *q;
 	int i;
 
+	if (lbm_main_debug)
+		pr_info("LBM: into %s\n", __func__);
+
 	if (datalen >= PAGE_SIZE)
 		datalen = PAGE_SIZE - 1;
 
@@ -1168,18 +1266,26 @@ static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *
 		res = PTR_ERR(data);
 		goto bpf_egress_write_out;
 	}
+	
+	/* Strip the newline */
+	data = strim(data);
 
 	/* Only allow rm
 	 * Syntax: "rm:bpfname1,rm:bpfname2,..."
 	 */
 	res = 0;
 	while ((p = strsep(&data, ",")) != NULL) {
+		if (lbm_main_debug)
+			pr_info("LBM: p [%s]\n", p);
 		if (strncmp(p, "rm:", 3) == 0) {
 			name = p + 3;
 			/* Remove this from DB */
-			spin_lock_irqsave(&lbm_bpf_egress_db_lock, flags);
+			//spin_lock_irqsave(&lbm_bpf_egress_db_lock, flags);
+			spin_lock(&lbm_bpf_egress_db_lock);
 			for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
 				hlist_for_each_entry_rcu(q, &lbm_bpf_egress_db[i], entry) {
+					if (likely(strlen(q->bpf_name) != strlen(name)))
+						continue;
 					if (strncasecmp(q->bpf_name, name, strlen(q->bpf_name)) == 0) {
 						bpf_prog_sub(q->bpf, 1);
 						hlist_del_rcu(&q->entry);
@@ -1192,7 +1298,8 @@ static ssize_t lbm_sysfs_bpf_egress_write(struct file *file, const char __user *
 				}
 			}
 bpf_egress_write_found:
-			spin_unlock_irqrestore(&lbm_bpf_egress_db_lock, flags);
+			//spin_unlock_irqrestore(&lbm_bpf_egress_db_lock, flags);
+			spin_unlock(&lbm_bpf_egress_db_lock);
 		} else {
 			pr_err("LBM: %s - unsupported bpf egress option [%s]\n",
 				__func__, p);
@@ -1219,7 +1326,8 @@ static ssize_t lbm_sysfs_mod_ingress_read(struct file *filp,
 
 	rcu_read_lock();
 	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
-		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "subsys [%d]: ", i);
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s (%d): ",
+			get_subsys_str(i), i);
 		hlist_for_each_entry_rcu(p, &lbm_mod_ingress_db[i], entry) {
 			len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s ",
 					p->mod->name);
@@ -1251,6 +1359,9 @@ static ssize_t lbm_sysfs_mod_ingress_write(struct file *file, const char __user 
 		res = PTR_ERR(data);
 		goto mod_ingress_write_out;
 	}
+
+	/* Strip the newline */
+	data = strim(data);
 
 	/* Only allow rm
 	 * Syntax: "rm:modname1,rm:modname2,..."
@@ -1291,7 +1402,8 @@ static ssize_t lbm_sysfs_mod_egress_read(struct file *filp,
 
 	rcu_read_lock();
 	for (i = 0; i < LBM_SUB_SYS_NUM_MAX; i++) {
-		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "subsys [%d]: ", i);
+		len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s (%d): ",
+			get_subsys_str(i), i);
 		hlist_for_each_entry_rcu(p, &lbm_mod_egress_db[i], entry) {
 			len += scnprintf(tmp_buf+len, LBM_TMP_BUF_LEN-len, "%s ",
 					p->mod->name);
@@ -1323,6 +1435,9 @@ static ssize_t lbm_sysfs_mod_egress_write(struct file *file, const char __user *
 		res = PTR_ERR(data);
 		goto mod_egress_write_out;
 	}
+
+	/* Strip the newline */
+	data = strim(data);
 
 	/* Only allow rm
 	 * Syntax: "rm:modname1,rm:modname2,..."

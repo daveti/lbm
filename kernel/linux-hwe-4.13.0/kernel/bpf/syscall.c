@@ -1150,7 +1150,11 @@ static int bpf_prog_load_lbm(union bpf_attr *attr)
 	err = lbm_load_bpf_prog(prog, u64_to_user_ptr(attr->lbm.bpf_name));
 	if (err < 0) {
 		pr_err("LBM: lbm_load_bpf_prog failed with errno [%d]\n", err);
+		/* 	
 		goto lbm_free_used_maps;
+		Ditto
+		*/
+		return err;
 	}
 
 	if (lbm_is_bpf_debug_enabled())

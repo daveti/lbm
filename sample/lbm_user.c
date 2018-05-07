@@ -83,7 +83,7 @@ int main(int argc, char * argv[])
 	attr.lbm.log_buf = ptr_to_u64(bpf_log_buf),
 	attr.lbm.kern_version = LINUX_VERSION_CODE;	/* needs to match the current kernel */
 	attr.lbm.subsys_idx = 0,	/* USB */
-	attr.lbm.call_dir = 0,	/* Ingress */
+	attr.lbm.call_dir = 1,	/* Ingress */
 	attr.lbm.pathname = ptr_to_u64(pathname),
 	attr.lbm.bpf_name = ptr_to_u64(bpf_name),
 
