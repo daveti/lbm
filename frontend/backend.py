@@ -270,10 +270,12 @@ class CBackend(Backend):
                 # string_len != byte_string_len -> goto out (fastpath)
                 self.EMIT("", "BPF_JMP_REG(BPF_JNE, BPF_REG_0, %s, %s)" % (tmp_ref, bad_label))
 
+                bytes_to_cmp = src.byte_string
+
                 # Do we need to worry about endianess here?
                 # Pad the byte string if necessary
                 if len(src.byte_string) % 8 != 0:
-                    bytes_to_cmp = src.byte_string + "\x00"*(8 - len(src.byte_string) % 8)
+                    bytes_to_cmp += "\x00"*(8 - len(src.byte_string) % 8)
 
                 # okay we have strings that match in length, lets compare them
                 # for each set of 8-bytes
