@@ -8,6 +8,8 @@ import lbm
 def main():
     parser = argparse.ArgumentParser(description="LBM frontend expression compiler")
     parser.add_argument("--output", "-o", help="Compiled LBM program output file")
+    parser.add_argument("--save-intermediates", help="Save intermediate LBM files when compiling",
+            action="store_true")
     parser.add_argument("expression")
 
     parser.add_argument("--debug", action="store_true")
@@ -19,18 +21,26 @@ def main():
 
         if args.output:
             program_template = """
-            #include "libbpf.h"
+#include "libbpf.h"
 
-            struct bpf_insn prog[] = {
-            %s
-            };
+const char * prog_name = "{prog_name}";
+const char * prog_expr = "{prog_expr}";
+const char * prog_original = {prog_original};
 
-            unsigned int prog_size = sizeof(prog)/sizeof(struct bpf_insn);
-            """
+struct bpf_insn prog[] = {{
+{prog}
+}};
+
+unsigned int prog_size = sizeof(prog)/sizeof(struct bpf_insn); """
 
             program_name = args.output
             program_commas = map(lambda x: x+",", program)
-            c_program = program_template % ("\n".join(program_commas))
+            program_commas_str = "\n".join(map(lambda x: "\"" + x + "\\n\"", program_commas))
+            program_commas = "\n".join(program_commas)
+            program_expr = args.expression.replace("\\", "\\\\").replace("\"", "\\\"")
+
+            c_program = program_template.format(prog_name=program_name,
+                    prog_expr=program_expr, prog_original=program_commas_str, prog=program_commas)
 
             proc = subprocess.Popen(["gcc", "-shared", "-fpic", "-fpie", "-o", program_name + ".so", "-x", "c", "-"],
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -44,6 +54,11 @@ def main():
                     print("GCC output: " + stdout)
 
                 return
+
+            if args.save_intermediates:
+                fp = open(program_name + ".c", "w")
+                fp.write(c_program)
+                fp.close()
 
             os.rename(program_name + ".so", program_name + ".lbm")
         else:
