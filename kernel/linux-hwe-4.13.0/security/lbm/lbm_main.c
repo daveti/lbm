@@ -1066,7 +1066,7 @@ static ssize_t lbm_sysfs_perf_option_write(struct file *file, const char __user 
 	/* Strip the newline */
 	data = strim(data);
 
-	rv = kstrtoint(val, 0, &value);
+	rv = kstrtoint(data, 0, &value);
 	if (rv < 0)
 		goto perf_option_write_out;
 	if ((value >= LBM_MBM_MS) && (value <= LBM_MBM_TSC)) {
