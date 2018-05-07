@@ -211,7 +211,7 @@ class CBackend(Backend):
                         self.EMIT("", "BPF_MOV64_IMM(%s, 0)" % (tmp_ref))
                         self.EMIT(label, "")
                     else:
-                        raise ValueError("Unsupported operand combination for binop(EQ)")
+                        raise ValueError("Unsupported operand combination for binop(EQ): %s %s" % (type(lhs), type(rhs)))
                 elif op == "AND":
                     lhs = src.lhs
                     rhs = src.rhs
@@ -272,7 +272,8 @@ class CBackend(Backend):
 
                 # Do we need to worry about endianess here?
                 # Pad the byte string if necessary
-                bytes_to_cmp = src.byte_string + "\x00"*(len(src.byte_string) % 8)
+                if len(src.byte_string) % 8 != 0:
+                    bytes_to_cmp = src.byte_string + "\x00"*(8 - len(src.byte_string) % 8)
 
                 # okay we have strings that match in length, lets compare them
                 # for each set of 8-bytes
