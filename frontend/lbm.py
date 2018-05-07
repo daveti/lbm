@@ -224,9 +224,7 @@ def parse_and_assemble(expression, debug):
 
     program = backend.assemble(code)
 
-    # Print the program with replaced labels
-    for pc, insn in enumerate(program):
-        print "%s," % (insn)
+    return program
 
 if __name__ == "__main__":
     #expression = "usb.idProduct == 0xf00d && usb.idVendor == 1234 && usb.actual_length == 33 "

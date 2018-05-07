@@ -1,17 +1,55 @@
 #!/usr/bin/env python2
+import os
 import argparse
+import subprocess
 
 import lbm
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--debug", action="store_true")
+    parser = argparse.ArgumentParser(description="LBM frontend expression compiler")
+    parser.add_argument("--output", "-o", help="Compiled LBM program output file")
     parser.add_argument("expression")
+
+    parser.add_argument("--debug", action="store_true")
 
     args = parser.parse_args()
 
     try:
-        lbm.parse_and_assemble(args.expression, args.debug)
+        program = lbm.parse_and_assemble(args.expression, args.debug)
+
+        if args.output:
+            program_template = """
+            #include "libbpf.h"
+
+            struct bpf_insn prog[] = {
+            %s
+            };
+
+            unsigned int prog_size = sizeof(prog)/sizeof(struct bpf_insn);
+            """
+
+            program_name = args.output
+            program_commas = map(lambda x: x+",", program)
+            c_program = program_template % ("\n".join(program_commas))
+
+            proc = subprocess.Popen(["gcc", "-shared", "-fpic", "-fpie", "-o", program_name + ".so", "-x", "c", "-"],
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+            stdout, _ = proc.communicate(c_program)
+
+            if len(stdout) > 0:
+                print("Failed to compile LBM program. This is an internal error. Use --debug for more information.")
+
+                if args.debug:
+                    print("GCC output: " + stdout)
+
+                return
+
+            os.rename(program_name + ".so", program_name + ".lbm")
+        else:
+            # Print the program
+            for insn in program:
+                print "%s," % (insn)
     except ValueError as e:
         if args.debug:
             raise
