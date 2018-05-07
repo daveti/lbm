@@ -41,6 +41,9 @@
 #define LBM_STAT_RX_CNT			LBM_RX			/* 0 */
 #define LBM_STAT_RX_CNT_FILTERED	(LBM_RX+2)		/* 2 */
 #define LBM_STAT_NUM_MAX		4
+#define LBM_MBM_MS			0
+#define LBM_MBM_NS			1
+#define LBM_MBM_TSC			2
 #define LBM_MBM_SEC_IN_USEC		1000000	/* micro benchmark */
 #define LBM_MBM_SUB_TV(s,e)		\
 	((e.tv_sec*LBM_MBM_SEC_IN_USEC+e.tv_usec) - \
@@ -77,6 +80,15 @@ struct lbm_mod_info {
 	struct lbm_mod *mod;
 };
 
+struct lbm_perf_time {
+	struct timeval start_tv;
+	struct timeval end_tv;
+	struct timespec64 start_ts;
+	struct timespec64 end_ts;
+	u64 start_tsc;
+	u64 end_tsc;
+};
+
 static int lbm_mod_num;
 static int lbm_enable;
 static int lbm_main_debug;
@@ -86,7 +98,7 @@ static int lbm_bluetooth_debug;
 static int lbm_bluetooth_l2cap_debug;
 static int lbm_nfc_debug;
 static int lbm_stats_enable;
-static int lbm_perf_ns = 1;
+static int lbm_perf_option;
 
 /* BPF map should be working so we literally do not need these */
 static unsigned long lbm_stats_db[LBM_SUB_SYS_NUM_MAX][LBM_STAT_NUM_MAX];
@@ -97,6 +109,7 @@ static struct dentry *lbm_sysfs_enable;
 static struct dentry *lbm_sysfs_debug;
 static struct dentry *lbm_sysfs_stats;
 static struct dentry *lbm_sysfs_perf;
+static struct dentry *lbm_sysfs_perf_option;
 static struct dentry *lbm_sysfs_mod;
 static struct dentry *lbm_sysfs_bpf_ingress;
 static struct dentry *lbm_sysfs_bpf_egress;
@@ -141,6 +154,63 @@ struct bpf_verifier_ops lbm_nfc_prog_ops = {
 const struct bpf_verifier_ops lbm_prog_ops;
 
 /* Helpers */
+static inline void perf_start(struct lbm_perf_time *t)
+{
+	switch (lbm_perf_option) {
+	case LBM_MBM_MS:
+		do_gettimeofday(&t->start_tv);
+		break;
+	case LBM_MBM_NS:
+		getnstimeofday64(&t->start_ts);
+		break;
+	case LBM_MBM_TSC:
+		t->start_tsc = rdtsc();	/* daveti: should we do ordered? */
+		break;
+	default:
+		pr_err("LBM: not supported mbm option\n");
+		break;
+	}
+}
+
+static inline unsigned long perf_end(struct lbm_perf_time *t)
+{
+	switch (lbm_perf_option) {
+	case LBM_MBM_MS:
+		do_gettimeofday(&t->end_tv);
+		return LBM_MBM_SUB_TV((t->start_tv), (t->end_tv));
+	case LBM_MBM_NS:
+		getnstimeofday64(&t->end_ts);
+		return LBM_MBM_SUB_TS((t->start_ts), (t->end_ts));
+	case LBM_MBM_TSC:
+		t->end_tsc = rdtsc();	/* daveti: should we do ordered? */
+		return ((t->end_tsc)-(t->start_tsc));
+	default:
+		pr_err("LBM: not supported mbm option\n");
+		return 0;
+	}
+}
+
+static inline void perf_print(unsigned long diff, int subsys, int dir)
+{
+	switch (lbm_perf_option) {
+	case LBM_MBM_MS:
+		pr_info("lbm-perf: %s took [%lu] us for subsys [%d] and dir [%d]\n",
+			__func__, diff, subsys, dir);
+		break;
+	case LBM_MBM_NS:
+		pr_info("lbm-perf: %s took [%lu] ns for subsys [%d] and dir [%d]\n",
+			__func__, diff, subsys, dir);
+		break;
+	case LBM_MBM_TSC:
+		pr_info("lbm-perf: %s took [%lu] cycles for subsys [%d] and dir [%d]\n",
+			__func__, diff, subsys, dir);
+		break;
+	default:
+		pr_err("LBM: not supported mbm option\n");
+		break;
+	}
+}
+
 static inline const char *get_subsys_str(int idx)
 {
 	switch (idx) {
@@ -223,9 +293,8 @@ EXPORT_SYMBOL_GPL(lbm_is_nfc_debug_enabled);
 int lbm_filter_pkt(int subsys, int dir, void *pkt)
 {
 	struct lbm_bpf_mod_info *p;
+	struct lbm_perf_time t;
 	int res;
-	struct timeval start_tv, end_tv;
-	struct timespec64 start_ts, end_ts;
 
 	if (!lbm_enable)
 		return LBM_RES_ALLOW;
@@ -245,12 +314,8 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 	}
 
 	/* Perf start */
-	if (lbm_perf_enable[subsys][dir]) {
-		if (lbm_perf_ns)
-			getnstimeofday64(&start_ts);
-		else
-			do_gettimeofday(&start_tv);
-	}
+	if (lbm_perf_enable[subsys][dir])
+		perf_start(&t);
 
 	/* Run the damn bpf/mod
 	 * Current policy is to stop until we hit the first drop.
@@ -328,17 +393,8 @@ int lbm_filter_pkt(int subsys, int dir, void *pkt)
 
 filter_pkt_early_ret:
 	/* Perf ends */
-	if (lbm_perf_enable[subsys][dir]) {
-		if (lbm_perf_ns) {
-			getnstimeofday64(&end_ts);
-			pr_info("lbm-perf: %s took [%lu] ns for subsys [%d] and dir [%d]\n", __func__,
-				LBM_MBM_SUB_TS(start_ts, end_ts), subsys, dir);
-		} else {
-			do_gettimeofday(&end_tv);
-			pr_info("lbm-perf: %s took [%lu] us for subsys [%d] and dir [%d]\n", __func__,
-				LBM_MBM_SUB_TV(start_tv, end_tv), subsys, dir);
-		}
-	}
+	if (lbm_perf_enable[subsys][dir])
+		perf_print(perf_end(&t), subsys, dir);
 
 	if (lbm_stats_enable && (res == LBM_RES_DROP)) {
 		if (dir == LBM_CALL_DIR_INGRESS)
@@ -973,6 +1029,49 @@ perf_write_out:
 }
 
 
+static ssize_t lbm_sysfs_perf_option_read(struct file *filp,
+					char __user *buf,
+					size_t count, loff_t *ppos)
+{
+	char tmp_buf[LBM_TMP_BUF_LEN];
+	ssize_t len;
+
+	len = scnprintf(tmp_buf, LBM_TMP_BUF_LEN, "%d\n", lbm_perf_option);
+	return simple_read_from_buffer(buf, count, ppos, tmp_buf, len);
+}
+
+static ssize_t lbm_sysfs_perf_option_write(struct file *file, const char __user *buf,
+					size_t datalen, loff_t *ppos)
+{
+	char *data;
+	ssize_t res;
+
+	if (datalen >= PAGE_SIZE)
+		datalen = PAGE_SIZE - 1;
+
+	/* No partial writes. */
+	res = -EINVAL;
+	if (*ppos != 0)
+		goto perf_option_write_out;
+
+	data = memdup_user_nul(buf, datalen);
+	if (IS_ERR(data)) {
+		res = PTR_ERR(data);
+		goto perf_option_write_out;
+	}
+
+	/* Strip the newline */
+	data = strim(data);
+
+	res = update_boolean_value(data, &lbm_perf_option);
+	if (!res)
+		return datalen;
+
+perf_option_write_out:
+	return res;
+}
+
+
 static ssize_t lbm_sysfs_mod_read(struct file *filp,
 					char __user *buf,
 					size_t count, loff_t *ppos)
@@ -1493,6 +1592,12 @@ static const struct file_operations lbm_sysfs_perf_ops = {
 	.llseek = generic_file_llseek,
 };
 
+static const struct file_operations lbm_sysfs_perf_options_ops = {
+	.read = lbm_sysfs_perf_option_read,
+	.write = lbm_sysfs_perf_option_write,
+	.llseek = generic_file_llseek,
+};
+
 static const struct file_operations lbm_sysfs_mod_ops = {
 	.read = lbm_sysfs_mod_read,
 	.write = lbm_sysfs_mod_write,
@@ -1553,6 +1658,11 @@ int lbm_init_sysfs(void)
 	if (IS_ERR(lbm_sysfs_perf))
 		goto init_sysfs_failed;
 
+	lbm_sysfs_perf_option = securityfs_create_file("perf_option", 0600, lbm_sysfs_dir,
+				NULL, &lbm_sysfs_perf_ops);
+	if (IS_ERR(lbm_sysfs_perf_option))
+		goto init_sysfs_failed;
+
 	lbm_sysfs_mod = securityfs_create_file("modules", 0600, lbm_sysfs_dir,
 				NULL, &lbm_sysfs_mod_ops);
 	if (IS_ERR(lbm_sysfs_mod))
@@ -1585,6 +1695,7 @@ init_sysfs_failed:
 	securityfs_remove(lbm_sysfs_debug);
 	securityfs_remove(lbm_sysfs_stats);
 	securityfs_remove(lbm_sysfs_perf);
+	securityfs_remove(lbm_sysfs_perf_option);
 	securityfs_remove(lbm_sysfs_mod);
 	securityfs_remove(lbm_sysfs_bpf_ingress);
 	securityfs_remove(lbm_sysfs_bpf_egress);

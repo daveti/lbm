@@ -28,7 +28,9 @@ static const struct bpf_func_proto lbm_usb_get_devnum_proto = {
 
 BPF_CALL_1(lbm_usb_get_devpath_len, struct urb *, urb)
 {
-	return strlen(urb->dev->devpath);
+	if (urb->dev->devpath)
+		return strlen(urb->dev->devpath);
+	return 0;
 }
 
 static const struct bpf_func_proto lbm_usb_get_devpath_len_proto = {
@@ -41,7 +43,9 @@ static const struct bpf_func_proto lbm_usb_get_devpath_len_proto = {
 
 BPF_CALL_1(lbm_usb_get_product_len, struct urb *, urb)
 {
-	return strlen(urb->dev->product);
+	if (urb->dev->product)
+		return strlen(urb->dev->product);
+	return 0;
 }
 
 static const struct bpf_func_proto lbm_usb_get_product_len_proto = {
@@ -54,7 +58,9 @@ static const struct bpf_func_proto lbm_usb_get_product_len_proto = {
 
 BPF_CALL_1(lbm_usb_get_manufacturer_len, struct urb *, urb)
 {
-	return strlen(urb->dev->manufacturer);
+	if (urb->dev->manufacturer)
+		return strlen(urb->dev->manufacturer);
+	return 0;
 }
 
 static const struct bpf_func_proto lbm_usb_get_manufacturer_len_proto = {
@@ -67,7 +73,9 @@ static const struct bpf_func_proto lbm_usb_get_manufacturer_len_proto = {
 
 BPF_CALL_1(lbm_usb_get_serial_len, struct urb *, urb)
 {
-	return strlen(urb->dev->serial);
+	if (urb->dev->serial)
+		return strlen(urb->dev->serial);
+	return 0;
 }
 
 static const struct bpf_func_proto lbm_usb_get_serial_len_proto = {
@@ -81,7 +89,8 @@ static const struct bpf_func_proto lbm_usb_get_serial_len_proto = {
 BPF_CALL_4(lbm_usb_devpath_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	if ((unlikely(offset > strlen(urb->dev->devpath))) ||
+	if ((unlikely(!urb->dev->devpath)) ||
+		(unlikely(offset > strlen(urb->dev->devpath))) ||
 		(unlikely(len > strlen(urb->dev->devpath))) ||
 		(unlikely(offset+len > strlen(urb->dev->devpath))))
 		goto devpath_load_err;
@@ -110,7 +119,8 @@ BPF_CALL_2(lbm_usb_devpath_load_bytes_reg, struct urb *, urb, u32, offset)
 	u64 reg = 0;
 	int len = sizeof(reg);
 
-	if (unlikely(offset > strlen(urb->dev->devpath)))
+	if ((unlikely(!urb->dev->devpath)) ||
+		(unlikely(offset > strlen(urb->dev->devpath))))
 		return reg;
 
 	if (offset + len > strlen(urb->dev->devpath))
@@ -132,7 +142,8 @@ static const struct bpf_func_proto lbm_usb_devpath_load_bytes_reg_proto = {
 BPF_CALL_4(lbm_usb_product_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	if ((unlikely(offset > strlen(urb->dev->product))) ||
+	if ((unlikely(!urb->dev->product)) ||	
+		(unlikely(offset > strlen(urb->dev->product))) ||
 		(unlikely(len > strlen(urb->dev->product))) ||
 		(unlikely(offset+len > strlen(urb->dev->product))))
 		goto product_load_err;
@@ -161,7 +172,8 @@ BPF_CALL_2(lbm_usb_product_load_bytes_reg, struct urb *, urb, u32, offset)
 	u64 reg = 0;
 	int len = sizeof(reg);
 
-	if (unlikely(offset > strlen(urb->dev->product)))
+	if ((unlikely(!urb->dev->product)) ||
+		(unlikely(offset > strlen(urb->dev->product))))
 		return reg;
 
 	if (offset + len > strlen(urb->dev->product))
@@ -183,7 +195,8 @@ static const struct bpf_func_proto lbm_usb_product_load_bytes_reg_proto = {
 BPF_CALL_4(lbm_usb_manufacturer_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	if ((unlikely(offset > strlen(urb->dev->manufacturer))) ||
+	if ((unlikely(!urb->dev->manufacturer)) ||
+		(unlikely(offset > strlen(urb->dev->manufacturer))) ||
 		(unlikely(len > strlen(urb->dev->manufacturer))) ||
 		(unlikely(offset+len > strlen(urb->dev->manufacturer))))
 		goto manufacturer_load_err;
@@ -212,7 +225,8 @@ BPF_CALL_2(lbm_usb_manufacturer_load_bytes_reg, struct urb *, urb, u32, offset)
 	u64 reg = 0;
 	int len = sizeof(reg);
 
-	if (unlikely(offset > strlen(urb->dev->manufacturer)))
+	if ((unlikely(!urb->dev->manufacturer)) ||
+		(unlikely(offset > strlen(urb->dev->manufacturer))))
 		return reg;
 
 	if (offset + len > strlen(urb->dev->manufacturer))
@@ -234,7 +248,8 @@ static const struct bpf_func_proto lbm_usb_manufacturer_load_bytes_reg_proto = {
 BPF_CALL_4(lbm_usb_serial_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	if ((unlikely(offset > strlen(urb->dev->serial))) ||
+	if ((unlikely(!urb->dev->serial)) ||
+		(unlikely(offset > strlen(urb->dev->serial))) ||
 		(unlikely(len > strlen(urb->dev->serial))) ||
 		(unlikely(offset+len > strlen(urb->dev->serial))))
 		goto serial_load_err;
@@ -263,7 +278,8 @@ BPF_CALL_2(lbm_usb_serial_load_bytes_reg, struct urb *, urb, u32, offset)
 	u64 reg = 0;
 	int len = sizeof(reg);
 
-	if (unlikely(offset > strlen(urb->dev->serial)))
+	if ((unlikely(!urb->dev->serial)) ||
+		(unlikely(offset > strlen(urb->dev->serial))))
 		return reg;
 
 	if (offset + len > strlen(urb->dev->serial))
@@ -285,7 +301,8 @@ static const struct bpf_func_proto lbm_usb_serial_load_bytes_reg_proto = {
 BPF_CALL_4(lbm_usb_setup_packet_load_bytes, struct urb *, urb, u32, offset,
 		void *, to, u32, len)
 {
-	if ((unlikely(offset > sizeof(struct usb_ctrlrequest))) ||
+	if ((unlikely(!urb->setup_packet)) ||
+		(unlikely(offset > sizeof(struct usb_ctrlrequest))) ||
 		(unlikely(len > sizeof(struct usb_ctrlrequest))) ||
 		(unlikely(offset+len > sizeof(struct usb_ctrlrequest))))
 		goto setup_pkt_load_err;
