@@ -7,7 +7,7 @@ remove_programs() {
 
   IFS=$'\n'
   for line in $ingress_filters; do
-    subsys=$(echo "$line" | awk '{print $2}')
+    subsys=$(echo "$line" | awk '{print $1}')
     programs=$(echo "$line" | awk '{$1=""; $2=""; print $0}')
 
     IFS=$' '

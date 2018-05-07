@@ -1,1 +1,4 @@
 lbm_user
+load_filter
+*.o
+*.so
