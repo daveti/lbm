@@ -25,6 +25,8 @@
 #include <linux/time64.h>
 #include <linux/string.h>
 #include <linux/timex.h>
+#include <linux/irqflags.h>
+#include <linux/preempt.h>
 #include <linux/lbm.h>
 #include "lbm_usb.h"
 #include "lbm_bluetooth.h"
@@ -88,6 +90,11 @@ struct lbm_perf_time {
 	struct timespec64 end_ts;
 	u64 start_tsc;
 	u64 end_tsc;
+	unsigned long flags;
+	u64 start_tsc_high;
+	u64 start_tsc_low;
+	u64 end_tsc_high;
+	u64 end_tsc_low;
 };
 
 static int lbm_mod_num;
@@ -165,7 +172,14 @@ static inline void perf_start(struct lbm_perf_time *t)
 		getnstimeofday64(&t->start_ts);
 		break;
 	case LBM_MBM_TSC:
-		t->start_tsc = get_cycles();	/* daveti: should we do ordered? */
+		preempt_disable();
+		raw_local_irq_save(t->flags);
+		asm volatile ("cpuid\n\t"
+			"rdtsc\n\t"
+			"mov %%rdx, %0\n\t"
+			"mov %%rax, %1\n\t"
+			: "=r" (t->start_tsc_high), "=r" (t->start_tsc_low)
+			:: "%rax", "%rbx", "%rcx", "%rdx");
 		break;
 	default:
 		pr_err("LBM: not supported mbm option\n");
@@ -183,7 +197,17 @@ static inline unsigned long long perf_end(struct lbm_perf_time *t)
 		getnstimeofday64(&t->end_ts);
 		return LBM_MBM_SUB_TS((t->start_ts), (t->end_ts));
 	case LBM_MBM_TSC:
-		t->end_tsc = get_cycles();	/* daveti: should we do ordered? */
+		asm volatile ("rdtscp\n\t"
+			"mov %%rdx, %0\n\t"
+			"mov %%rax, %1\n\t"
+			"cpuid\n\t"
+			: "=r" (t->end_tsc_high), "=r" (t->end_tsc_low)
+			:: "%rax", "%rbx", "%rcx", "%rdx");
+		raw_local_irq_restore(t->flags);
+		preempt_enable();
+		/* Merge the high and low */
+		t->start_tsc = ((u64)t->start_tsc_high << 32 | t->start_tsc_low);
+		t->end_tsc = ((u64)t->end_tsc_high << 32 | t->end_tsc_low);
 		return ((t->end_tsc)-(t->start_tsc));
 	default:
 		pr_err("LBM: not supported mbm option\n");
@@ -203,8 +227,9 @@ static inline void perf_print(unsigned long long diff, int subsys, int dir)
 			__func__, diff, subsys, dir);
 		break;
 	case LBM_MBM_TSC:
+		/* NOTE: native_sched_clock_from_tsc doest NOT return the delta */
 		pr_info("lbm-perf: %s took [%llu] cycles ([%llu] ns) for subsys [%d] and dir [%d]\n",
-			__func__, diff, native_sched_clock_from_tsc(diff),
+			__func__, diff, 0,
 			subsys, dir);
 		break;
 	default:
