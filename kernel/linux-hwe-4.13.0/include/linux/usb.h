@@ -75,6 +75,8 @@ struct usb_host_endpoint {
 	int extralen;
 	int enabled;
 	int streams;
+
+	int ifnum;	/* daveti: remap ep back to if for lbm */
 };
 
 /* host-side wrapper for one interface setting's parsed descriptors */
