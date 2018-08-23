@@ -682,8 +682,9 @@ u32 lbm_usb_convert_ctx_access(enum bpf_access_type type,
 
 	switch (si->off) {
 	case offsetof(struct __lbm_usb, pipe):
+		/* Note: we only want the pipe type here */
 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
-				bpf_target_off(struct urb, pipe, 4, target_size));
+				((bpf_target_off(struct urb, pipe, 4, target_size) >> 30) & 3));
 		break;
 	case offsetof(struct __lbm_usb, stream_id):
 		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
