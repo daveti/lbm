@@ -76,7 +76,9 @@ struct usb_host_endpoint {
 	int enabled;
 	int streams;
 
+#ifdef CONFIG_LBM
 	int ifnum;	/* daveti: remap ep back to if for lbm */
+#endif
 };
 
 /* host-side wrapper for one interface setting's parsed descriptors */
@@ -690,6 +692,10 @@ struct usb_device {
 	struct usb3_lpm_parameters u1_params;
 	struct usb3_lpm_parameters u2_params;
 	unsigned lpm_disable_count;
+
+#ifdef CONFIG_LBM
+	unsigned long plug_time; /* daveti: LBM plugging time */
+#endif
 };
 #define	to_usb_device(d) container_of(d, struct usb_device, dev)
 

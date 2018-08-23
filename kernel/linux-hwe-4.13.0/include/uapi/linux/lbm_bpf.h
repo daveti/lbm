@@ -15,6 +15,7 @@
 	FN(lbm_usb_get_busnum),				\
 	FN(lbm_usb_get_portnum),			\
 	FN(lbm_usb_get_ifnum),				\
+	FN(lbm_usb_get_plugtime),			\
 	FN(lbm_usb_get_devpath_len),			\
 	FN(lbm_usb_get_product_len),			\
 	FN(lbm_usb_get_manufacturer_len),		\

@@ -668,6 +668,11 @@ struct usb_device *usb_alloc_dev(struct usb_device *parent,
 		dev->authorized = !!HCD_DEV_AUTHORIZED(usb_hcd);
 		dev->wusb = usb_bus_is_wusb(bus) ? 1 : 0;
 	}
+
+#ifdef CONFIG_LBM
+	/* daveti: generate the plugging time for LBM */
+	dev->plug_time = ktime_get_ns();
+#endif
 	return dev;
 }
 EXPORT_SYMBOL_GPL(usb_alloc_dev);

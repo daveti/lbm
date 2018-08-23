@@ -256,12 +256,14 @@ static int usb_parse_endpoint(struct device *ddev, int cfgno, int inum,
 	memcpy(&endpoint->desc, d, n);
 	INIT_LIST_HEAD(&endpoint->urb_list);
 
+#ifdef CONFIG_LBM
         /*
          * lbm: save the interface number in host endpoint
          * Aug 22, 2018
          * daveti
          */
         endpoint->ifnum = ifp->desc.bInterfaceNumber;
+#endif
 
 	/*
 	 * Fix up bInterval values outside the legal range.

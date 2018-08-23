@@ -67,6 +67,19 @@ static const struct bpf_func_proto lbm_usb_get_ifnum_proto = {
 };
 
 
+BPF_CALL_1(lbm_usb_get_plugtime, struct urb *, urb)
+{
+	return urb->dev->plug_time;
+}
+
+static const struct bpf_func_proto lbm_usb_get_plugtime_proto = {
+	.func           = lbm_usb_get_plugtime,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+};
+
+
 BPF_CALL_1(lbm_usb_get_devpath_len, struct urb *, urb)
 {
 	if (urb->dev->devpath)
@@ -583,6 +596,8 @@ const struct bpf_func_proto *lbm_usb_func_proto(enum bpf_func_id func_id)
 		return &lbm_usb_get_portnum_proto;
 	case BPF_FUNC_lbm_usb_get_ifnum:
 		return &lbm_usb_get_ifnum_proto;
+	case BPF_FUNC_lbm_usb_get_plugtime:
+		return &lbm_usb_get_plugtime_proto;
 	case BPF_FUNC_lbm_usb_get_devpath_len:
 		return &lbm_usb_get_devpath_len_proto;
 	case BPF_FUNC_lbm_usb_get_product_len:
