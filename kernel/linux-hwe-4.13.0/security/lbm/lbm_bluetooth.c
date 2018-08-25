@@ -814,6 +814,42 @@ static const struct bpf_func_proto lbm_bluetooth_l2cap_get_sig_cmd_num_proto = {
 };
 
 
+BPF_CALL_2(lbm_bluetooth_l2cap_get_sig_cmd_idx, struct sk_buff *, skb,
+		u32, cmd_code)
+{
+	u8 *data = skb->data + L2CAP_HDR_SIZE;
+	int len = skb->len - L2CAP_HDR_SIZE;
+	int idx = 0;
+	u16 cmd_len;
+	struct l2cap_cmd_hdr *cmd;
+
+	if (skb->lbm_bt.dir == LBM_CALL_DIR_EGRESS)
+		data = skb->lbm_bt.data + L2CAP_HDR_SIZE;
+
+	while (len >= L2CAP_CMD_HDR_SIZE) {
+		cmd = (struct l2cap_cmd_hdr *)data;
+		if (cmd->code == cmd_code)
+			return idx;
+		data += L2CAP_CMD_HDR_SIZE;
+		len  -= L2CAP_CMD_HDR_SIZE;
+		cmd_len = le16_to_cpu(cmd->len);
+		data += cmd_len;
+		len  -= cmd_len;
+		idx++;
+	}
+
+	return -1;
+}
+
+static const struct bpf_func_proto lbm_bluetooth_l2cap_get_sig_cmd_idx_proto = {
+	.func           = lbm_bluetooth_l2cap_get_sig_cmd_idx,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_ANYTHING,
+};
+
+
 BPF_CALL_2(lbm_bluetooth_l2cap_get_sig_cmd_code_idx, struct sk_buff *, skb,
 		u32, idx)
 {
@@ -1358,6 +1394,8 @@ const struct bpf_func_proto *lbm_bluetooth_l2cap_func_proto(enum bpf_func_id fun
 		return &lbm_bluetooth_l2cap_get_conn_io_capability_proto;
 	case BPF_FUNC_lbm_bluetooth_l2cap_get_sig_cmd_num:
 		return &lbm_bluetooth_l2cap_get_sig_cmd_num_proto;
+	case BPF_FUNC_lbm_bluetooth_l2cap_get_sig_cmd_idx:
+		return &lbm_bluetooth_l2cap_get_sig_cmd_idx_proto;
 	case BPF_FUNC_lbm_bluetooth_l2cap_get_sig_cmd_code_idx:
 		return &lbm_bluetooth_l2cap_get_sig_cmd_code_idx_proto;
 	case BPF_FUNC_lbm_bluetooth_l2cap_get_sig_cmd_id_idx:

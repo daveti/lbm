@@ -86,6 +86,7 @@
 	FN(lbm_bluetooth_l2cap_get_conn_sec_level),	\
 	FN(lbm_bluetooth_l2cap_get_conn_io_capability),	\
 	FN(lbm_bluetooth_l2cap_get_sig_cmd_num),	\
+	FN(lbm_bluetooth_l2cap_get_sig_cmd_idx),	\
 	FN(lbm_bluetooth_l2cap_get_sig_cmd_code_idx),	\
 	FN(lbm_bluetooth_l2cap_get_sig_cmd_id_idx),	\
 	FN(lbm_bluetooth_l2cap_get_sig_cmd_len_idx),	\
