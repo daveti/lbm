@@ -120,6 +120,8 @@ struct __lbm_bluetooth {
 };
 
 struct __lbm_bluetooth_l2cap {
+	__u32 skb_len;		/* skb->len */
+	__u32 skb_prio;		/* skb->priority */
 	__u32 todo;
 };
 

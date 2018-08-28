@@ -1445,7 +1445,22 @@ u32 lbm_bluetooth_l2cap_convert_ctx_access(enum bpf_access_type type,
 				struct bpf_insn *insn_buf,
 				struct bpf_prog *prog, u32 *target_size)
 {
-	return 0;
+	struct bpf_insn *insn = insn_buf;
+
+	switch (si->off) {
+	case offsetof(struct __lbm_bluetooth_l2cap, skb_len):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct sk_buff, len, 4, target_size));
+		break;
+	case offsetof(struct __lbm_bluetooth_l2cap, skb_prio):
+		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+				bpf_target_off(struct sk_buff, priority, 4, target_size));
+		break;
+	default:
+		break;
+	}
+
+	return insn - insn_buf;
 }
 
 int lbm_bluetooth_l2cap_prologue(struct bpf_insn *insn_buf, bool direct_write,
