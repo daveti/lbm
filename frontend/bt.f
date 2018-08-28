@@ -71,7 +71,13 @@ bt.hci.sco.data
 bt.hci.command.data
 
 # Bluetooth l2cap
-# NOTE: all fields under l2cap are using BPF helpers
+# u32
+bt.l2cap.skb_len
+	BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, offset(struct __lbm_bluetooth_l2cap, skb_len)),	/* ret value is saved into R2 */
+bt.l2cap.skb_prio
+	BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, offset(struct __lbm_bluetooth_l2cap, skb_prio)),	/* ret value is saved into R2 */
+
+# NOTE: all fields under are using BPF helpers
 bt.l2cap.cid
 	lbm_bluetooth_l2cap_get_cid
 bt.l2cap.len
