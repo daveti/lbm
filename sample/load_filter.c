@@ -11,6 +11,7 @@
 #include <sys/errno.h>
 #include <fcntl.h>
 #include <linux/limits.h>
+#include <sys/mount.h>
 
 #include "libbpf.h"
 
@@ -57,6 +58,7 @@ struct lbm_program {
 
 
 #define LBM_SYS_PATH "/sys/kernel/security/lbm"
+#define LBM_BPF_PATH "/sys/fs/bpf"
 
 #define MAX_BPF_INSTRUCTIONS 4096
 
@@ -197,7 +199,7 @@ int lbm_load_program(struct lbm_program * program, const char * lbm_pin_path)
   attr.lbm.subsys_idx = 0,	/* USB */
   //attr.lbm.subsys_idx = 1,	/* BT hci */
   //attr.lbm.subsys_idx = 1,	/* BT l2cap */
-  attr.lbm.call_dir = 1,	/* Ingress */
+  attr.lbm.call_dir = 0,	/* Ingress */
   attr.lbm.pathname = ptr_to_u64(lbm_pin_path),
   attr.lbm.bpf_name = ptr_to_u64(program->name),
 
@@ -208,7 +210,11 @@ int lbm_load_program(struct lbm_program * program, const char * lbm_pin_path)
   }
 
   if (prog_fd < 0) {
-    perror("Failed to load LBM program");
+    if (errno == ENOENT) {
+      perror("Failed to load LBM program (are you use the BPF filesystem is mounted?)");
+    } else {
+      perror("Failed to load LBM program");
+    }
     return -1;
   } else {
     printf("Loaded %s with %u instructions\n", program->name, program->insn_count);
@@ -233,6 +239,8 @@ int main(int argc, char * argv[])
           return 1;
         }
 
+        //mount("none", LBM_BPF_PATH, "bpf", MS_MGC_VAL, NULL);
+
         if (lbm_read_sys("enable", sysread, sizeof(sysread)-1) < 0) {
           printf("Unable to read LBM enabled flag. Are you using an LBM kernel?\n");
           return 1;
@@ -246,7 +254,7 @@ int main(int argc, char * argv[])
         lbm_alloc_program(&program);
 
         strncpy(program.name, argv[1], sizeof(program.name)-1);
-        snprintf(pathname, sizeof(pathname)-1, "%s/%s", "/sys/fs/bpf", program.name);
+        snprintf(pathname, sizeof(pathname)-1, "%s/%s", LBM_BPF_PATH, program.name);
 
         if (lbm_extract_program(bpf_path, &program) < 0) {
           return -1;

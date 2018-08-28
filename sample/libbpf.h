@@ -2,8 +2,9 @@
 #define RAW_INSN_H
 
 #include <linux/bpf.h>
+#include <stddef.h>
 
-#define offsetof(TYPE, MEMBER)	((size_t)&((TYPE *)0)->MEMBER)
+//#define offsetof(TYPE, MEMBER)	((size_t)&((TYPE *)0)->MEMBER)
 
 // Not supported in 4.13
 //#define BPF_JLT  0xa0
