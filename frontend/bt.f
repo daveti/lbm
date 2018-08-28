@@ -102,7 +102,18 @@ bt.l2cap.conn.io_capability
 	lbm_bluetooth_l2cap_get_conn_io_capability
 bt.l2cap.sig.cmd.num
 	lbm_bluetooth_l2cap_get_sig_cmd_num
-bt.l2cap.sig.cmd.code[i]	/* indexed */
+bt.l2cap.sig.cmd.idx
+	lbm_bluletooth_l2cap_get_sig_cmd_idx
+/* All these indexed stuffs should be generated internally
+ * with the help of get_sig_cmd_idx. That is, instead of writing
+ * X[i], lbmtool needs to find the idx and use the idx in future
+ * referencing. Therefore, we promote X[i] to X
+ */
+bt.l2cap.sig.cmd.code
+bt.l2cap.sig.cmd.id
+bt.l2cap.sig.cmd.len
+
+bt.l2cap.sig.cmd.code[i]
 	lbm_bluetooth_l2cap_get_sig_cmd_code_idx
 bt.l2cap.sig.cmd.id[i]
 	lbm_bluetooth_l2cap_get_sig_cmd_id_idx
