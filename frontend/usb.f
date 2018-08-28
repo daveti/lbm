@@ -59,6 +59,16 @@ usb.devnum
 	BPF_CALL_FUNC(BPF_FUNC_lbm_usb_get_devnum),	/* usb.devnum is returned into R0 */
 	BPF_MOV64_REG(BPF_REG_1, BPF_REG_6),	/* recover the ctx */
 
+/* Newly added fields with the corresponding helpers */
+usb.busnum
+	BPF_FUNC_lbm_usb_get_busnum
+usb.portnum
+	BPF_FUNC_lbm_usb_get_portnum
+usb.ifnum
+	BPF_FUNC_lbm_usb_get_ifnum
+usb.plugtime
+	BPF_FUNC_lbm_usb_get_plugtime
+
 # Can treat as u32 although the actual length are either u8 or le16
 # Ditto
 usb.bcdUSB
