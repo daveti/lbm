@@ -158,7 +158,9 @@ bt_l2cap = {
                 #data # need load bytes
             }
          }
-    }
+    },
+    "skb_len" :        SymbolContext(ty=Type.TY_INT_32, offset=0),
+    "skb_prio" :       SymbolContext(ty=Type.TY_INT_32, offset=4),
     #"data" # need load bytes
 }
 
