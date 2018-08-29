@@ -41,6 +41,7 @@
 #include <net/nfc/nci.h>
 #include <net/nfc/nci_core.h>
 #include <linux/nfc.h>
+#include <linux/lbm.h>		/* daveti: for lbm */
 
 struct core_conn_create_data {
 	int length;
@@ -1297,6 +1298,15 @@ int nci_recv_frame(struct nci_dev *ndev, struct sk_buff *skb)
 		return -ENXIO;
 	}
 
+	/* daveti: LBM RX */
+	if (lbm_is_enabled()) {
+		if (lbm_filter_pkt(LBM_SUBSYS_INDEX_NFC,
+			LBM_CALL_DIR_INGRESS, (void *)skb) == LBM_RES_DROP) {
+			kfree_skb(skb);
+			return -EINVAL;
+		}
+	}
+
 	/* Queue frame for rx worker thread */
 	skb_queue_tail(&ndev->rx_q, skb);
 	queue_work(ndev->rx_wq, &ndev->rx_work);
@@ -1312,6 +1322,17 @@ int nci_send_frame(struct nci_dev *ndev, struct sk_buff *skb)
 	if (!ndev) {
 		kfree_skb(skb);
 		return -ENODEV;
+	}
+
+	/* daveti: LBM TX
+	 * NOTE: nci_send_cmd essentially calls this as well
+	 */
+	if (lbm_is_enabled()) {
+		if (lbm_filter_pkt(LBM_SUBSYS_INDEX_NFC,
+			LBM_CALL_DIR_EGRESS, (void *)skb) == LBM_RES_DROP) {
+			kfree_skb(skb);
+			return -EINVAL;
+		}
 	}
 
 	/* Get rid of skb owner, prior to sending to the driver. */

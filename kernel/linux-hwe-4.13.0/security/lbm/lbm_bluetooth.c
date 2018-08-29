@@ -23,7 +23,7 @@ BPF_CALL_1(lbm_bluetooth_get_pkt_type, struct sk_buff *, skb)
 	return hci_skb_pkt_type(skb);
 }
 
-static const struct bpf_func_proto lbm_bluetooth_get_pkt_type_proto= {
+static const struct bpf_func_proto lbm_bluetooth_get_pkt_type_proto = {
 	.func           = lbm_bluetooth_get_pkt_type,
 	.gpl_only       = false,
 	.ret_type       = RET_INTEGER,

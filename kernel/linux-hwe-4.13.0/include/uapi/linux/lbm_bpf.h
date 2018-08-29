@@ -97,7 +97,8 @@
 	FN(lbm_bluetooth_l2cap_get_le_sig_cmd_id),	\
 	FN(lbm_bluetooth_l2cap_get_le_sig_cmd_len),	\
 	FN(lbm_bluetooth_l2cap_le_sig_cmd_data_load_bytes),	\
-	FN(lbm_bluetooth_l2cap_data_load_bytes),
+	FN(lbm_bluetooth_l2cap_data_load_bytes),	\
+	FN(lbm_nfc_nci_get_mt),
 
 /* lbm defined user-space bpf contexts */
 struct __lbm_usb {
@@ -122,11 +123,10 @@ struct __lbm_bluetooth {
 struct __lbm_bluetooth_l2cap {
 	__u32 skb_len;		/* skb->len */
 	__u32 skb_prio;		/* skb->priority */
-	__u32 todo;
 };
 
 struct __lbm_nfc {
-	__u32 todo;
+	__u32 len;		/* skb->len */
 };
 
 #endif /* _UAPI__LINUX_LBM_BPF_H__ */

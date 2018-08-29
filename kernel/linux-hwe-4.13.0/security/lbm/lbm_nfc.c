@@ -9,8 +9,20 @@
 #include <linux/bpf.h>
 #include <linux/filter.h>
 #include <uapi/linux/lbm_bpf.h>
+#include <net/nfc/nci.h>
 
 /* BPF helpers */
+BPF_CALL_1(lbm_nfc_nci_get_mt, struct sk_buff *, skb)
+{
+        return nci_mt(skb->data);
+}
+
+static const struct bpf_func_proto lbm_nfc_nci_get_mt_proto = {
+        .func           = lbm_nfc_nci_get_mt,
+        .gpl_only       = false,
+        .ret_type       = RET_INTEGER,
+        .arg1_type      = ARG_PTR_TO_CTX,
+};
 
 
 /* BPF verifier ops */
@@ -19,6 +31,8 @@ const struct bpf_func_proto *lbm_nfc_func_proto(enum bpf_func_id func_id)
 	switch (func_id) {
 	/* Common ones */
 	/* lbm nfc specific */
+	case BPF_FUNC_lbm_nfc_nci_get_mt:
+		return &lbm_nfc_nci_get_mt_proto;
 	default:
 		return NULL;
 	}
@@ -49,6 +63,10 @@ u32 lbm_nfc_convert_ctx_access(enum bpf_access_type type,
 	struct bpf_insn *insn = insn_buf;
 
 	switch (si->off) {
+        case offsetof(struct __lbm_nfc, len):
+                *insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->src_reg,
+                                bpf_target_off(struct sk_buff, len, 4, target_size));
+                break;
 	default:
 		break;
 	}
