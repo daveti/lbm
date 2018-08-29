@@ -164,21 +164,32 @@ bt_l2cap = {
     #"data" # need load bytes
 }
 
+nfc_nci = {
+    "len" : SymbolContext(ty=Type.TY_INT_32, offset=0),
+    "mt" :  SymbolHelper(ty=Type.TY_INT_32, name="lbm_nfc_nci_get_mt"),
+}
+
 bt_symbol_table = {
     "hci" : bt_hci,
     "l2cap" : bt_l2cap,
 }
 
+
+nfc_symbol_table = {
+    "nci" : nfc_nci,
+}
+
 symbol_table = {
     "usb" : usb_symbol_table,
     "bt" : bt_symbol_table,
+    "nfc" : nfc_symbol_table,
 }
 
 symbol_subsystem = {
     "usb" : 0,
     "bt.hci" : 1,
     "bt.l2cap" : 2,
-    "nfc" : 3,
+    "nfc.nci" : 3,
 }
 
 def lookup_symbol(symbol):
