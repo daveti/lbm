@@ -78,6 +78,8 @@ class CBackend(Backend):
                         return stmt, i
                 elif isinstance(stmt.src, IRCall):
                     pass
+                elif isinstance(stmt.src, IRLoadCtx):
+                    pass
                 elif isinstance(stmt.src, IRExpr):
                     raise ValueError("Unhandled IR object expression %s" % repr(stmt.src))
 
