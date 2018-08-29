@@ -174,6 +174,13 @@ symbol_table = {
     "bt" : bt_symbol_table,
 }
 
+symbol_subsystem = {
+    "usb" : 0,
+    "bt.hci" : 1,
+    "bt.l2cap" : 2,
+    "nfc" : 3,
+}
+
 def lookup_symbol(symbol):
     parts = symbol.split(".")
 
@@ -190,10 +197,23 @@ def lookup_symbol(symbol):
 
         level = level[obj]
 
-    if isinstance(level, dict) and "" in level:
-        return level[""]
+    symbol_result = None
+    subsystem = None
 
-    if not isinstance(level, Symbol):
-        return None
-    else:
-        return level
+    for k,v in symbol_subsystem.iteritems():
+        if symbol.startswith(k):
+            subsystem = v
+            break
+
+    if isinstance(level, dict) and "" in level:
+        symbol_result = level[""]
+
+    if isinstance(level, Symbol):
+        symbol_result = level
+
+    # annotate the symbol result with the subsystem
+    if symbol_result:
+        assert subsystem is not None
+        symbol_result.subsystem = subsystem
+
+    return symbol_result

@@ -38,18 +38,9 @@ class AtomToIntegral(Transformer):
     def string(self, args):
         return str(args[0])[1:-1]
 
-    def attribute(self, args):
-        return args[1]
-
     def struct(self, args):
         identifier = ".".join(args)
         symbol = lookup_symbol(identifier)
-
-        if symbol is None:
-            e = args[0]
-            error = common.generate_error(e.line, e.column, "unknown symbol '%s'" % identifier)
-            raise ValueError(error)
-
         return symbol
 
 class CanonicalizeTree(Transformer):
@@ -60,6 +51,9 @@ class CanonicalizeTree(Transformer):
             return Tree("comparison", args[::-1])
         else:
             return Tree("comparison", args)
+
+    def attribute(self, args):
+        return args[1]
 
 class ExpressionizeTree(Transformer):
     def comparison(self, args):
@@ -83,6 +77,30 @@ class ExpressionizeTree(Transformer):
             tree.children = [Tree(tree.data, [lhs, op, rhs])] + tree.children[3:]
 
         return tree
+
+class SymbolCheck(Visitor):
+    def __init__(self):
+        self.subsystem_type = None
+        self.subsystem_first = None
+
+    def struct(self, tree):
+        identifier = ".".join(tree.children)
+        symbol = lookup_symbol(identifier)
+
+        if symbol is None:
+            e = tree.children[0]
+            error = common.generate_error(e.line, e.column, "unknown symbol '%s'" % identifier)
+            raise ValueError(error)
+
+        if self.subsystem_type is None:
+            self.subsystem_type = symbol.subsystem
+            self.subsystem_first = tree
+        else:
+            if self.subsystem_type != symbol.subsystem:
+                e = tree.children[0]
+                first_identifier = ".".join(self.subsystem_first.children)
+                error = common.generate_error(e.line, e.column, "multiple subsystems found '%s' - first starting at '%s'" % (identifier, first_identifier))
+                raise ValueError(error)
 
 def lbm_tree_to_ir(tree):
     ir = []
@@ -180,6 +198,7 @@ def lbm_tree_to_ir(tree):
 
     return ir
 
+
 def lbm_print_ir(ir):
     for stmt_id, stmt in enumerate(ir):
         print "%d: %s" % (stmt_id, stmt)
@@ -197,11 +216,17 @@ def parse_and_assemble(expression, debug):
         print("Before: \n" + tree.pretty())
         print("")
 
+    # Initial tree shaping
     tree = ExpressionizeTree().transform(tree)
     tree = FlattenExpressions().transform(tree)
     tree = CanonicalizeTree().transform(tree)
 
-    # Should be performed last
+    # Semantic analysis
+    visitor = SymbolCheck()
+    tree = visitor.visit(tree)
+    subsystem_type = visitor.subsystem_type
+
+    # Should be performed last CST -> AST
     tree = AtomToIntegral().transform(tree)
 
     if debug:
@@ -224,7 +249,7 @@ def parse_and_assemble(expression, debug):
 
     program = backend.assemble(code)
 
-    return program
+    return program, subsystem_type
 
 if __name__ == "__main__":
     #expression = "usb.idProduct == 0xf00d && usb.idVendor == 1234 && usb.actual_length == 33 "
