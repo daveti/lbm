@@ -238,12 +238,13 @@ int lbm_extract_program(char * program_path, struct lbm_program * program)
         }
 
         memcpy(insns, prog, sizeof(struct bpf_insn)*program_size);
-        dlclose(bpf_program);
 
         program->insns = insns;
         program->insn_count = program_size;
         program->subsystem = *prog_subsystem;
         program->direction = LBM_CALL_DIR_INGRESS; // XXX: we only support ingress for now
+
+        dlclose(bpf_program);
 
         return 0;
 }
