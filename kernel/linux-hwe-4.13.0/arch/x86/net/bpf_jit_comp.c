@@ -914,6 +914,9 @@ xadd:			if (is_imm8(insn->off))
 		case BPF_JMP | BPF_JGE | BPF_X:
 		case BPF_JMP | BPF_JSGT | BPF_X:
 		case BPF_JMP | BPF_JSGE | BPF_X:
+		/* daveti: jlt, jle */
+		case BPF_JMP | BPF_JLT | BPF_X:
+		case BPF_JMP | BPF_JLE | BPF_X:
 			/* cmp dst_reg, src_reg */
 			EMIT3(add_2mod(0x48, dst_reg, src_reg), 0x39,
 			      add_2reg(0xC0, dst_reg, src_reg));
@@ -937,6 +940,9 @@ xadd:			if (is_imm8(insn->off))
 		case BPF_JMP | BPF_JGE | BPF_K:
 		case BPF_JMP | BPF_JSGT | BPF_K:
 		case BPF_JMP | BPF_JSGE | BPF_K:
+		/* daveti: jlt, jle */
+		case BPF_JMP | BPF_JLT | BPF_K:
+		case BPF_JMP | BPF_JLE | BPF_K:
 			/* cmp dst_reg, imm8/32 */
 			EMIT1(add_1mod(0x48, dst_reg));
 
@@ -969,6 +975,15 @@ emit_cond_jmp:		/* convert BPF opcode to x86 */
 			case BPF_JSGE:
 				/* signed '>=', GE in x86 */
 				jmp_cond = X86_JGE;
+				break;
+			/* daveti: jlt, jle */
+			case BPF_JLT:
+				/* LT is unsigned '<', JB in x86 */
+				jmp_cond = X86_JB;
+				break;
+			case BPF_JLE:
+				/* LE is unsigned '<=', JBE in x86 */
+				jmp_cond = X86_JBE;
 				break;
 			default: /* to silence gcc warning */
 				return -EFAULT;

@@ -600,6 +600,9 @@ static int bpf_jit_blind_insn(const struct bpf_insn *from,
 	case BPF_JMP | BPF_JSGT | BPF_K:
 	case BPF_JMP | BPF_JSGE | BPF_K:
 	case BPF_JMP | BPF_JSET | BPF_K:
+	/* daveti: jlt, jle */
+	case BPF_JMP | BPF_JLT  | BPF_K:
+	case BPF_JMP | BPF_JLE  | BPF_K:
 		/* Accommodate for extra offset in case of a backjump. */
 		off = from->off;
 		if (off < 0)
@@ -842,6 +845,11 @@ static unsigned int ___bpf_prog_run(u64 *regs, const struct bpf_insn *insn,
 		[BPF_JMP | BPF_JSGE | BPF_K] = &&JMP_JSGE_K,
 		[BPF_JMP | BPF_JSET | BPF_X] = &&JMP_JSET_X,
 		[BPF_JMP | BPF_JSET | BPF_K] = &&JMP_JSET_K,
+		/* daveti: jlt, jle */
+		[BPF_JMP | BPF_JLT | BPF_X] = &&JMP_JLT_X,
+		[BPF_JMP | BPF_JLT | BPF_K] = &&JMP_JLT_K,
+		[BPF_JMP | BPF_JLE | BPF_X] = &&JMP_JLE_X,
+		[BPF_JMP | BPF_JLE | BPF_K] = &&JMP_JLE_K,
 		/* Program return */
 		[BPF_JMP | BPF_EXIT] = &&JMP_EXIT,
 		/* Store instructions */
@@ -1119,6 +1127,31 @@ out:
 		CONT;
 	JMP_JSET_K:
 		if (DST & IMM) {
+			insn += insn->off;
+			CONT_JMP;
+		}
+		CONT;
+	/* daveti: jlt, jle */
+	JMP_JLT_X:
+		if (DST < SRC) {
+			insn += insn->off;
+			CONT_JMP;
+		}
+		CONT;
+	JMP_JLT_K:
+		if (DST < IMM) {
+			insn += insn->off;
+			CONT_JMP;
+		}
+		CONT;
+	JMP_JLE_X:
+		if (DST <= SRC) {
+			insn += insn->off;
+			CONT_JMP;
+		}
+		CONT;
+	JMP_JLE_K:
+		if (DST <= IMM) {
 			insn += insn->off;
 			CONT_JMP;
 		}

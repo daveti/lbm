@@ -298,7 +298,9 @@ static const char *const bpf_jmp_string[16] = {
 	[BPF_JA >> 4]   = "jmp",
 	[BPF_JEQ >> 4]  = "==",
 	[BPF_JGT >> 4]  = ">",
+	[BPF_JLT >> 4]  = "<",	/* daveti: jlt */
 	[BPF_JGE >> 4]  = ">=",
+	[BPF_JLE >> 4]  = "<=",	/* daveti: jle */
 	[BPF_JSET >> 4] = "&",
 	[BPF_JNE >> 4]  = "!=",
 	[BPF_JSGT >> 4] = "s>",
@@ -2316,6 +2318,35 @@ static void reg_set_min_max(struct bpf_reg_state *true_reg,
 		true_reg->min_value = val;
 		true_reg->value_from_signed = value_from_signed;
 		break;
+	/* daveti: jlt, jle */
+	case BPF_JLT:
+		value_from_signed = false;
+		if (true_reg->value_from_signed != value_from_signed)
+			reset_reg_range_values(true_reg, 0);
+		if (false_reg->value_from_signed != value_from_signed)
+			reset_reg_range_values(false_reg, 0);
+
+		true_reg->min_value = 0;
+
+		false_reg->min_value = val;
+		false_reg->value_from_signed = value_from_signed;
+		true_reg->max_value = val - 1;
+		true_reg->value_from_signed = value_from_signed;
+		break;
+	case BPF_JLE:
+		value_from_signed = false;
+		if (true_reg->value_from_signed != value_from_signed)
+			reset_reg_range_values(true_reg, 0);
+		if (false_reg->value_from_signed != value_from_signed)
+			reset_reg_range_values(false_reg, 0);
+
+		true_reg->min_value = 0;
+
+		false_reg->min_value = val + 1;
+		false_reg->value_from_signed = value_from_signed;
+		true_reg->max_value = val;
+		true_reg->value_from_signed = value_from_signed;
+		break;
 	default:
 		break;
 	}
@@ -2396,6 +2427,33 @@ static void reg_set_min_max_inv(struct bpf_reg_state *true_reg,
 		true_reg->max_value = val;
 		true_reg->value_from_signed = value_from_signed;
 		break;
+	/* daveti: jlt, jle */
+	case BPF_JLT:
+		if (true_reg->value_from_signed != value_from_signed)
+			reset_reg_range_values(true_reg, 0);
+		if (false_reg->value_from_signed != value_from_signed)
+			reset_reg_range_values(false_reg, 0);
+
+		false_reg->min_value = 0;
+
+		false_reg->max_value = val;
+		false_reg->value_from_signed = value_from_signed;
+		true_reg->min_value = val + 1;
+		true_reg->value_from_signed = value_from_signed;
+		break;
+	case BPF_JLE:
+		if (true_reg->value_from_signed != value_from_signed)
+			reset_reg_range_values(true_reg, 0);
+		if (false_reg->value_from_signed != value_from_signed)
+			reset_reg_range_values(false_reg, 0);
+
+		false_reg->min_value = 0;
+
+		false_reg->max_value = val - 1;
+		false_reg->value_from_signed = value_from_signed;
+		true_reg->min_value = val;
+		true_reg->value_from_signed = value_from_signed;
+		break;
 	default:
 		break;
 	}
@@ -2460,7 +2518,9 @@ static int check_cond_jmp_op(struct bpf_verifier_env *env,
 	u8 opcode = BPF_OP(insn->code);
 	int err;
 
-	if (opcode > BPF_EXIT) {
+	/* daveti: JLE is the last one now */
+	//if (opcode > BPF_EXIT) {
+	if (opcode > BPF_JLE) {
 		verbose("invalid BPF_JMP opcode %x\n", opcode);
 		return -EINVAL;
 	}
@@ -2554,6 +2614,27 @@ static int check_cond_jmp_op(struct bpf_verifier_env *env,
 		   dst_reg->type == PTR_TO_PACKET_END &&
 		   regs[insn->src_reg].type == PTR_TO_PACKET) {
 		find_good_pkt_pointers(other_branch, &regs[insn->src_reg]);
+	/* daveti: jlt, jle */
+	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLT &&
+		dst_reg->type == PTR_TO_PACKET &&
+		regs[insn->src_reg].type == PTR_TO_PACKET_END) {
+		/* pkt_data' < pkt_end */
+		find_good_pkt_pointers(other_branch, dst_reg);
+	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLT &&
+		dst_reg->type == PTR_TO_PACKET_END &&
+		regs[insn->src_reg].type == PTR_TO_PACKET) {
+		/* pkt_end < pkt_data' */
+		find_good_pkt_pointers(this_branch, &regs[insn->src_reg]);
+	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLE &&
+		dst_reg->type == PTR_TO_PACKET &&
+		regs[insn->src_reg].type == PTR_TO_PACKET_END) {
+		/* pkt_data' <= pkt_end */
+		find_good_pkt_pointers(other_branch, dst_reg);
+	} else if (BPF_SRC(insn->code) == BPF_X && opcode == BPF_JLE &&
+		dst_reg->type == PTR_TO_PACKET_END &&
+		regs[insn->src_reg].type == PTR_TO_PACKET) {
+		/* pkt_end <= pkt_data' */
+		find_good_pkt_pointers(this_branch, &regs[insn->src_reg]);
 	} else if (is_pointer_value(env, insn->dst_reg)) {
 		verbose("R%d pointer comparison prohibited\n", insn->dst_reg);
 		return -EACCES;

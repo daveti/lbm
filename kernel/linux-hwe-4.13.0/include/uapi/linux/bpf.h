@@ -37,6 +37,10 @@
 #define BPF_CALL	0x80	/* function call */
 #define BPF_EXIT	0x90	/* function return */
 
+/* daveti: backport JLT and etc from 4.14 */
+#define BPF_JLT		0xa0    /* LT is unsigned, '<' */
+#define BPF_JLE		0xb0    /* LE is unsigned, '<=' */
+
 /* Register numbers */
 enum {
 	BPF_REG_0 = 0,
