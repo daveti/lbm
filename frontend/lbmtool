@@ -5,14 +5,16 @@ import subprocess
 
 import lbm
 
-def save_program(program, program_output_name, program_source_file,
-        is_expression, debug, save_intermediates):
+def save_program(program, subsystem, program_output_name, program_source_file,
+        expression, debug, save_intermediates):
     program_template = """
 #include "libbpf.h"
 
 const char * prog_name = "{prog_name}";
-const char * prog_expr = "{prog_expr}";
-const char * prog_original = {prog_original};
+const char * prog_source_file = "{prog_file}";
+unsigned int prog_subsystem = {prog_subsystem}; // Subsystem code (LBM kernel ABI)
+const char * prog_expr = {prog_expr}; // Original LBM rule expression
+const char * prog_original = {prog_original}; // C BPF assembly
 
 struct bpf_insn prog[] = {{
 {prog}
@@ -24,14 +26,12 @@ unsigned int prog_size = sizeof(prog)/sizeof(struct bpf_insn); """
     program_commas_str = "\n".join(map(lambda x: "\"" + x + "\\n\"", program_commas))
     program_commas = "\n".join(program_commas)
 
+    program_expr = expression.replace("\\", "\\\\").replace("\"", "\\\"")
+    program_expr = program_expr.split("\n")
+    program_expr_str = "\n".join(map(lambda x: "\"" + x + "\\n\"", program_expr))
 
-    if is_expression:
-        program_expr = program.replace("\\", "\\\\").replace("\"", "\\\"")
-    else:
-        program_expr = "file:" + program_source_file
-
-    c_program = program_template.format(prog_name=program_output_name,
-            prog_expr=program_expr, prog_original=program_commas_str, prog=program_commas)
+    c_program = program_template.format(prog_name=program_output_name, prog_subsystem = subsystem,
+            prog_expr=program_expr_str, prog_file=program_source_file, prog_original=program_commas_str, prog=program_commas)
 
     proc = subprocess.Popen(["gcc", "-shared", "-fpic", "-fpie", "-o", program_output_name + ".so", "-x", "c", "-"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -67,15 +67,17 @@ def main():
 
     try:
         if args.expression:
-            program = lbm.parse_and_assemble(args.lbm_program, args.debug)
-            source_file = "stdin"
+            lbm_raw_program = args.lbm_program
+            source_file = "<stdin>"
         else:
             lbm_raw_program = open(args.lbm_program, 'r').read()
-            program = lbm.parse_and_assemble(lbm_raw_program, args.debug)
             source_file = args.lbm_program
 
+        program, subsystem = lbm.parse_and_assemble(lbm_raw_program, args.debug)
+
         if args.output:
-            save_program(program, args.output, source_file, args.expression, args.debug, args.save_intermediates)
+            save_program(program, subsystem, args.output, source_file,
+                    lbm_raw_program, args.debug, args.save_intermediates)
         else:
             # Print the program
             for insn in program:
