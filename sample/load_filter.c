@@ -14,6 +14,7 @@
 #include <sys/mount.h>
 
 #include "libbpf.h"
+#include "lbm.h"
 
 #define LOG_BUF_SIZE (1024*1024)
 
@@ -103,6 +104,58 @@ ssize_t lbm_read_sys(const char * path, char * buf, size_t sz)
   return total;
 }
 
+int lbm_verify_subsystem(unsigned int subsystem)
+{
+  switch(subsystem) {
+    case LBM_SUBSYS_INDEX_USB:
+      break;
+    case LBM_SUBSYS_INDEX_BLUETOOTH:
+      break;
+    case LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP:
+      break;
+    case LBM_SUBSYS_INDEX_NFC:
+      return -2; // unsupported right now
+    default:
+      return -1;
+  }
+
+  return 0;
+}
+
+const char * lbm_subsystem_to_string(unsigned int subsystem)
+{
+  switch(subsystem) {
+    case LBM_SUBSYS_INDEX_USB:
+      return "USB";
+    case LBM_SUBSYS_INDEX_BLUETOOTH:
+      return "Bluetooth";
+    case LBM_SUBSYS_INDEX_BLUETOOTH_L2CAP:
+      return "Bluetooth-L2CAP";
+    case LBM_SUBSYS_INDEX_NFC:
+      return "NFC";
+    default:
+      return "<unknown>";
+  }
+
+  return 0;
+}
+
+const char * lbm_direction_to_string(unsigned int direction)
+{
+  switch(direction) {
+    case LBM_CALL_DIR_INGRESS:
+      return "INPUT";
+    case LBM_CALL_DIR_EGRESS:
+      return "OUTPUT";
+    case LBM_CALL_DIR_INEGRESS:
+      return "BOTH";
+    default:
+      return "<unknown>";
+  }
+
+  return 0;
+}
+
 void lbm_alloc_program(struct lbm_program * program)
 {
     memset(program, 0, sizeof(*program));
@@ -129,22 +182,35 @@ int lbm_extract_program(char * program_path, struct lbm_program * program)
         void * bpf_program = dlopen(program_path, RTLD_NOW);
 
         if (!bpf_program) {
-          printf("Failed to open compiled BPF program: %s\n", dlerror());
+          printf("Failed to open compiled LBM program: %s\n", dlerror());
           return -1;
         }
 
         struct bpf_insn * prog = dlsym(bpf_program, "prog");
 
         if (!prog) {
-          printf("Unable to load BPF program: %s\n", dlerror());
+          printf("Unable to load LBM program: %s\n", dlerror());
           dlclose(bpf_program);
+          return -1;
+        }
+
+        unsigned int * prog_subsystem = dlsym(bpf_program, "prog_subsystem");
+
+        if (!prog_subsystem) {
+          printf("Unable to load LBM program subsystem: %s\n", dlerror());
+          dlclose(bpf_program);
+          return -1;
+        }
+
+        if (lbm_verify_subsystem(*prog_subsystem) < 0) {
+          printf("Unsupported LBM subsystem %d\n", *prog_subsystem);
           return -1;
         }
 
         unsigned int * prog_size = dlsym(bpf_program, "prog_size");
 
         if (!prog_size) {
-          printf("Unable to load BPF program instruction count: %s\n", dlerror());
+          printf("Unable to load LBM program instruction count: %s\n", dlerror());
           dlclose(bpf_program);
           return -1;
         }
@@ -176,7 +242,8 @@ int lbm_extract_program(char * program_path, struct lbm_program * program)
 
         program->insns = insns;
         program->insn_count = program_size;
-
+        program->subsystem = *prog_subsystem;
+        program->direction = LBM_CALL_DIR_INGRESS; // XXX: we only support ingress for now
 
         return 0;
 }
@@ -196,10 +263,9 @@ int lbm_load_program(struct lbm_program * program, const char * lbm_pin_path)
   attr.lbm.log_size = LOG_BUF_SIZE,
   attr.lbm.log_buf = ptr_to_u64(bpf_log_buf),
   attr.lbm.kern_version = LINUX_VERSION_CODE;	/* needs to match the current kernel */
-  attr.lbm.subsys_idx = 0,	/* USB */
-  //attr.lbm.subsys_idx = 1,	/* BT hci */
-  //attr.lbm.subsys_idx = 1,	/* BT l2cap */
-  attr.lbm.call_dir = 0,	/* Ingress */
+
+  attr.lbm.subsys_idx = program->subsystem,
+  attr.lbm.call_dir = program->direction,
   attr.lbm.pathname = ptr_to_u64(lbm_pin_path),
   attr.lbm.bpf_name = ptr_to_u64(program->name),
 
@@ -211,13 +277,17 @@ int lbm_load_program(struct lbm_program * program, const char * lbm_pin_path)
 
   if (prog_fd < 0) {
     if (errno == ENOENT) {
-      perror("Failed to load LBM program (are you use the BPF filesystem is mounted?)");
+      perror("Failed to load LBM program (are you sure the BPF filesystem is mounted?)");
     } else {
       perror("Failed to load LBM program");
     }
     return -1;
   } else {
-    printf("Loaded %s with %u instructions\n", program->name, program->insn_count);
+    printf("Loaded %s LBM program %s (direction %s) with %u instructions\n",
+        lbm_subsystem_to_string(program->subsystem),
+        program->name,
+        lbm_direction_to_string(program->direction),
+        program->insn_count);
   }
   return 0;
 }
