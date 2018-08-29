@@ -5,6 +5,54 @@ import subprocess
 
 import lbm
 
+def save_program(program, program_output_name, program_source_file,
+        is_expression, debug, save_intermediates):
+    program_template = """
+#include "libbpf.h"
+
+const char * prog_name = "{prog_name}";
+const char * prog_expr = "{prog_expr}";
+const char * prog_original = {prog_original};
+
+struct bpf_insn prog[] = {{
+{prog}
+}};
+
+unsigned int prog_size = sizeof(prog)/sizeof(struct bpf_insn); """
+
+    program_commas = map(lambda x: x+",", program)
+    program_commas_str = "\n".join(map(lambda x: "\"" + x + "\\n\"", program_commas))
+    program_commas = "\n".join(program_commas)
+
+
+    if is_expression:
+        program_expr = program.replace("\\", "\\\\").replace("\"", "\\\"")
+    else:
+        program_expr = "file:" + program_source_file
+
+    c_program = program_template.format(prog_name=program_output_name,
+            prog_expr=program_expr, prog_original=program_commas_str, prog=program_commas)
+
+    proc = subprocess.Popen(["gcc", "-shared", "-fpic", "-fpie", "-o", program_output_name + ".so", "-x", "c", "-"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    stdout, _ = proc.communicate(c_program)
+
+    if len(stdout) > 0:
+        print("Failed to compile LBM program. This is an internal error. Use --debug for more information.")
+
+        if debug:
+            print("GCC output: " + stdout)
+
+        return
+
+    if save_intermediates:
+        fp = open(program_output_name + ".c", "w")
+        fp.write(c_program)
+        fp.close()
+
+    os.rename(program_output_name + ".so", program_output_name + ".lbm")
+
 def main():
     parser = argparse.ArgumentParser(description="LBM frontend expression compiler")
     parser.add_argument("--output", "-o", help="Compiled LBM program output file")
@@ -20,56 +68,14 @@ def main():
     try:
         if args.expression:
             program = lbm.parse_and_assemble(args.lbm_program, args.debug)
+            source_file = "stdin"
         else:
             lbm_raw_program = open(args.lbm_program, 'r').read()
             program = lbm.parse_and_assemble(lbm_raw_program, args.debug)
+            source_file = args.lbm_program
 
         if args.output:
-            program_template = """
-#include "libbpf.h"
-
-const char * prog_name = "{prog_name}";
-const char * prog_expr = "{prog_expr}";
-const char * prog_original = {prog_original};
-
-struct bpf_insn prog[] = {{
-{prog}
-}};
-
-unsigned int prog_size = sizeof(prog)/sizeof(struct bpf_insn); """
-
-            program_name = args.output
-            program_commas = map(lambda x: x+",", program)
-            program_commas_str = "\n".join(map(lambda x: "\"" + x + "\\n\"", program_commas))
-            program_commas = "\n".join(program_commas)
-
-            program_expr = args.lbm_program.replace("\\", "\\\\").replace("\"", "\\\"")
-
-            if not args.expression:
-                program_expr = "file:" + program_expr
-
-            c_program = program_template.format(prog_name=program_name,
-                    prog_expr=program_expr, prog_original=program_commas_str, prog=program_commas)
-
-            proc = subprocess.Popen(["gcc", "-shared", "-fpic", "-fpie", "-o", program_name + ".so", "-x", "c", "-"],
-                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
-            stdout, _ = proc.communicate(c_program)
-
-            if len(stdout) > 0:
-                print("Failed to compile LBM program. This is an internal error. Use --debug for more information.")
-
-                if args.debug:
-                    print("GCC output: " + stdout)
-
-                return
-
-            if args.save_intermediates:
-                fp = open(program_name + ".c", "w")
-                fp.write(c_program)
-                fp.close()
-
-            os.rename(program_name + ".so", program_name + ".lbm")
+            save_program(program, args.output, source_file, args.expression, args.debug, args.save_intermediates)
         else:
             # Print the program
             for insn in program:
