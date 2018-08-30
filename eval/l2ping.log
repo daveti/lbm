@@ -1,0 +1,36 @@
+
+
+daveti@sgx-59:~/git/lbm/eval$ ./stat.sh bt-l2ping-1000-jit.log 
+
+bt-l2ping-1000-jit.log
+
+Average: 5.34751
+Min: 4.68
+Max: 51.23
+Standard deviation: 2.26639
+Median: 4.98
+daveti@sgx-59:~/git/lbm/eval$ sudo l2ping -f -c 1000 5c:f3:70:84:cb:fc > bt-l2ping-1000-nojit.log
+daveti@sgx-59:~/git/lbm/eval$ vim *nojit.log
+daveti@sgx-59:~/git/lbm/eval$ egrep -o '[0-9]+\.[0-9]+ms' bt-l2ping-1000-nojit.log | tail -999 | cut -dm -f 1 > bt-l2ping-1000.log 
+daveti@sgx-59:~/git/lbm/eval$ ./stat.sh bt-l2ping-1000.log 
+
+bt-l2ping-1000.log
+
+Average: 5.30107
+Min: 4.69
+Max: 66.28
+Standard deviation: 3.14205
+Median: 4.98
+daveti@sgx-59:~/git/lbm/eval$ sudo l2ping -f -c 1000 5c:f3:70:84:cb:fc > bt-l2ping-1000-no-lbm.log
+daveti@sgx-59:~/git/lbm/eval$ egrep -o '[0-9]+\.[0-9]+ms' bt-l2ping-1000-no-lbm.log | tail -999 | cut -dm -f 1 > bt-l2ping-1000-nolbm.log 
+daveti@sgx-59:~/git/lbm/eval$ ./stat.sh bt-l2ping-1000-nolbm.log 
+
+bt-l2ping-1000-nolbm.log
+
+Average: 5.37463
+Min: 4.75
+Max: 52.54
+Standard deviation: 2.2886
+Median: 4.98
+
+
