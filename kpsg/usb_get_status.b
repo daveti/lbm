@@ -39,7 +39,7 @@ BPF_MOV64_IMM(BPF_REG_0, 0),                            /* else: allow the pkt *
 BPF_EXIT_INSN(),					/* ret 0 */
 
 /* check the wValue from the setup pkt to double confirm */
-BPF_LDX_MEM(BPF_W, BPF_REG_6, BPF_REG_10, -2),		/* save the wValue into r6 */
+BPF_LDX_MEM(BPF_H, BPF_REG_6, BPF_REG_10, -2),		/* save the wValue into r6 */
 BPF_JMP_IMM(BPF_JEQ, BPF_REG_6, 0, 2),			/* if wValue == 0: goto PC+2; */
 BPF_MOV64_IMM(BPF_REG_0, 0),                            /* else: allow the pkt */
 BPF_EXIT_INSN(),					/* ret 0 */
