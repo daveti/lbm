@@ -30,7 +30,7 @@ while True:
     data = sock.recv(1024)
     print("Data received:", str(data))
 '''
-rep_num = 1000
+rep_num = 10000
 while (rep_num > 0):
     sock.send("daveti")
     data = sock.recv(1024)
