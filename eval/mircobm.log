@@ -1,0 +1,55 @@
+daveti@lbm:~/git/lbm/eval$ ./stat.sh ./usb-rx-wifi-10000.log
+
+./usb-rx-wifi-10000.log
+
+Average: 1257.94
+Min: 289
+Max: 11184
+Standard deviation: 437.914
+Median: 1833.5
+daveti@lbm:~/git/lbm/eval$ ./stat.sh ./usb-rx-wifi-10000-jit.log
+
+./usb-rx-wifi-10000-jit.log
+
+Average: 554.787
+Min: 122
+Max: 8868
+Standard deviation: 331.117
+Median: 283
+daveti@lbm:~/git/lbm/eval$ ./stat.sh ./bt-hci-rx-10000.log
+
+./bt-hci-rx-10000.log
+
+Average: 2806.48
+Min: 1162
+Max: 17870
+Standard deviation: 617.792
+Median: 2704
+daveti@lbm:~/git/lbm/eval$ ./stat.sh ./bt-hci-rx-10000-jit.log
+
+./bt-hci-rx-10000-jit.log
+
+Average: 982.651
+Min: 268
+Max: 15685
+Standard deviation: 472.31
+Median: 769
+daveti@lbm:~/git/lbm/eval$ ./stat.sh ./bt-l2cap-rx-10000.log
+
+./bt-l2cap-rx-10000.log
+
+Average: 2930.04
+Min: 1320
+Max: 25873
+Standard deviation: 669.689
+Median: 2996
+daveti@lbm:~/git/lbm/eval$ ./stat.sh ./bt-l2cap-rx-10000-jit.log
+
+./bt-l2cap-rx-10000-jit.log
+
+Average: 1150.9
+Min: 443
+Max: 23763
+Standard deviation: 531.06
+Median: 1263
+daveti@lbm:~/git/lbm/eval$
