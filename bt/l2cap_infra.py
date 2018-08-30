@@ -549,20 +549,21 @@ def l2cap_mutual_configration(l2cap_loop, dcid):
 
     
 def main(src_hci, dst_bdaddr, pcap_path=None, rep_num=1):
-    while (rep_num > 0):
-	l2cap_loop, _ = create_l2cap_connection(src_hci, dst_bdaddr, pcap_path=pcap_path)
-
+    l2cap_loop, _ = create_l2cap_connection(src_hci, dst_bdaddr, pcap_path=pcap_path)
+    rep_num2 = int(rep_num)
+    while (rep_num2 > 0):
     	# Seding 'test' to the established l2cap connection
-    	print("Sending 'test' in l2cap connection: " + rep_num)
+    	print("Sending 'test' in l2cap connection: " + str(rep_num2))
     	l2cap_loop.send(L2CAP_Hdr(cid=OUR_LOCAL_SCID) / Raw('test'))
     	l2cap_loop.on(lambda pkt: True,
                       lambda loop, pkt: pkt)
     
     	# And printing the returned data.
     	print(repr(l2cap_loop.cont()))
-    	l2cap_loop.finish()
+	rep_num2 -= 1
 
-	rep_num -= 1
+    l2cap_loop.finish()
+
 
 
 if __name__ == '__main__':
