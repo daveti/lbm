@@ -1,0 +1,119 @@
+root@lbm:/home/daveti/lmbench/lmbench-3.0-a9/results# make LIST=x86_64-linux-gnu/*
+x86_64-linux-gnu: no data for Memory load parallelism
+x86_64-linux-gnu: no data for Memory load parallelism
+x86_64-linux-gnu: no data for Memory load parallelism
+
+                 L M B E N C H  3 . 0   S U M M A R Y
+                 ------------------------------------
+		 (Alpha software, do not distribute)
+
+Basic system parameters
+------------------------------------------------------------------------------
+Host                 OS Description              Mhz  tlb  cache  mem   scal
+                                                     pages line   par   load
+                                                           bytes  
+--------- ------------- ----------------------- ---- ----- ----- ------ ----
+lbm       Linux 4.13.13        x86_64-linux-gnu 3192                       1
+lbm       Linux 4.13.13        x86_64-linux-gnu 3192                       1
+lbm       Linux 4.13.13        x86_64-linux-gnu 3192                       1
+
+Processor, Processes - times in microseconds - smaller is better
+------------------------------------------------------------------------------
+Host                 OS  Mhz null null      open slct sig  sig  fork exec sh  
+                             call  I/O stat clos TCP  inst hndl proc proc proc
+--------- ------------- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----
+lbm       Linux 4.13.13 3192 0.23 0.32 0.65 1.39 6.26 0.27 0.81 151. 497. 1425
+lbm       Linux 4.13.13 3192 0.22 0.32 0.66 1.38 5.65 0.27 0.80 141. 400. 1411
+lbm       Linux 4.13.13 3192 0.22 0.32 0.66 1.38 5.65 0.27 0.80 92.6 415. 1446
+
+Basic integer operations - times in nanoseconds - smaller is better
+-------------------------------------------------------------------
+Host                 OS  intgr intgr  intgr  intgr  intgr  
+                          bit   add    mul    div    mod   
+--------- ------------- ------ ------ ------ ------ ------ 
+lbm       Linux 4.13.13 0.2800 0.1400        6.1100 6.5700
+lbm       Linux 4.13.13 0.2800 0.1400        6.0200 6.4900
+lbm       Linux 4.13.13 0.2800 0.1400        6.0300 6.5300
+
+Basic uint64 operations - times in nanoseconds - smaller is better
+------------------------------------------------------------------
+Host                 OS int64  int64  int64  int64  int64  
+                         bit    add    mul    div    mod   
+--------- ------------- ------ ------ ------ ------ ------ 
+lbm       Linux 4.13.13  0.280                 12.0   11.7
+lbm       Linux 4.13.13  0.280                 12.1   11.7
+lbm       Linux 4.13.13  0.280                 12.1   11.7
+
+Basic float operations - times in nanoseconds - smaller is better
+-----------------------------------------------------------------
+Host                 OS  float  float  float  float
+                         add    mul    div    bogo
+--------- ------------- ------ ------ ------ ------ 
+lbm       Linux 4.13.13 0.8400 1.3900 3.7800 1.9500
+lbm       Linux 4.13.13 0.8400 1.3900 3.6800 1.9500
+lbm       Linux 4.13.13 0.8400 1.3900 3.6800 1.9600
+
+Basic double operations - times in nanoseconds - smaller is better
+------------------------------------------------------------------
+Host                 OS  double double double double
+                         add    mul    div    bogo
+--------- ------------- ------  ------ ------ ------ 
+lbm       Linux 4.13.13 0.8400 1.3900 5.6200 3.9000
+lbm       Linux 4.13.13 0.8400 1.3900 5.6300 3.9000
+lbm       Linux 4.13.13 0.8400 1.3900 5.6500 3.9100
+
+Context switching - times in microseconds - smaller is better
+-------------------------------------------------------------------------
+Host                 OS  2p/0K 2p/16K 2p/64K 8p/16K 8p/64K 16p/16K 16p/64K
+                         ctxsw  ctxsw  ctxsw ctxsw  ctxsw   ctxsw   ctxsw
+--------- ------------- ------ ------ ------ ------ ------ ------- -------
+lbm       Linux 4.13.13 1.7300 1.6600 2.4000 4.2000 5.0700 4.24000 5.79000
+lbm       Linux 4.13.13 1.6500 1.5800 2.1900 3.3800 4.9100 4.11000 7.77000
+lbm       Linux 4.13.13 1.6100 1.5000 2.2600 3.2200 7.5000 3.28000 7.55000
+
+*Local* Communication latencies in microseconds - smaller is better
+---------------------------------------------------------------------
+Host                 OS 2p/0K  Pipe AF     UDP  RPC/   TCP  RPC/ TCP
+                        ctxsw       UNIX         UDP         TCP conn
+--------- ------------- ----- ----- ---- ----- ----- ----- ----- ----
+lbm       Linux 4.13.13 1.730 5.028 6.97 9.127        11.5        17.
+lbm       Linux 4.13.13 1.650 4.998 6.31 8.973        11.3        17.
+lbm       Linux 4.13.13 1.610 5.068 7.27 8.966        11.4        17.
+
+*Remote* Communication latencies in microseconds - smaller is better
+---------------------------------------------------------------------
+Host                 OS   UDP  RPC/  TCP   RPC/ TCP
+                               UDP         TCP  conn
+--------- ------------- ----- ----- ----- ----- ----
+lbm       Linux 4.13.13                             
+lbm       Linux 4.13.13                             
+lbm       Linux 4.13.13                             
+
+File & VM system latencies in microseconds - smaller is better
+-------------------------------------------------------------------------------
+Host                 OS   0K File      10K File     Mmap    Prot   Page   100fd
+                        Create Delete Create Delete Latency Fault  Fault  selct
+--------- ------------- ------ ------ ------ ------ ------- ----- ------- -----
+lbm       Linux 4.13.13 5.7323 3.8630   13.3 6.8787  6493.0 0.501 0.22380 1.609
+lbm       Linux 4.13.13 5.7247 3.8566   13.2 7.0278  6518.0 0.502 0.22080 1.602
+lbm       Linux 4.13.13 5.7531 3.8511   13.7 6.8543  6523.0 0.500 0.22310 1.613
+
+*Local* Communication bandwidths in MB/s - bigger is better
+-----------------------------------------------------------------------------
+Host                OS  Pipe AF    TCP  File   Mmap  Bcopy  Bcopy  Mem   Mem
+                             UNIX      reread reread (libc) (hand) read write
+--------- ------------- ---- ---- ---- ------ ------ ------ ------ ---- -----
+lbm       Linux 4.13.13 5597 12.K 7539 7455.9  15.0K 8126.0 5886.8 14.K 8528.
+lbm       Linux 4.13.13 5606 12.K 7365 7473.6  15.0K 8193.2 5911.6 14.K 8535.
+lbm       Linux 4.13.13 5686 12.K 7466 7494.9  15.0K 8169.2 5909.9 14.K 8542.
+
+Memory latencies in nanoseconds - smaller is better
+    (WARNING - may not be correct, check graphs)
+------------------------------------------------------------------------------
+Host                 OS   Mhz   L1 $   L2 $    Main mem    Rand mem    Guesses
+--------- -------------   ---   ----   ----    --------    --------    -------
+lbm       Linux 4.13.13  3192 1.1140 3.3420        15.2        84.1
+lbm       Linux 4.13.13  3192 1.1140 3.3420        14.6        84.9
+lbm       Linux 4.13.13  3192 1.1140 3.3430        15.2        83.9
+root@lbm:/home/daveti/lmbench/lmbench-3.0-a9/results# 
+
