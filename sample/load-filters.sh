@@ -3,10 +3,10 @@
 ./remove-all-filters.sh
 sleep 1
 
-for i in `seq 1 10`; do
+for i in `seq 1 $1`; do
   echo "Loading $i..."
-  ./lbm_user "daveti$i"
-  sleep 1
+  ./load_filter "scala$i" ./programs/scala.lbm
+  sleep 0.2
 done
 
 echo ""
