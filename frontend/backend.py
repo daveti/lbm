@@ -120,7 +120,7 @@ class CBackend(Backend):
 
         temp_map = {}
         reg = RegisterAllocator(["BPF_REG_6", "BPF_REG_7", "BPF_REG_8"])
-        special_reg = RegisterAllocator(["BPF_REG_0", "BPF_REG_1", "BPF_REG_2", "BPF_REG_3", "BPF_REG_4", "BPF_REG_5"])
+        special_reg = RegisterAllocator(["BPF_REG_1", "BPF_REG_2", "BPF_REG_3", "BPF_REG_4", "BPF_REG_5"])
 
         # allocate registers (huehuehue)
         register_pressure = 0
