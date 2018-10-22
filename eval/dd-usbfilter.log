@@ -1,0 +1,109 @@
+# usbfilter disabled
+[grant@lbm ~/lbm/eval >> sudo ./lbm-dd.sh /media/grant/BENCH/outfile 
+----- dd benchmark -----
+
+Input file: /dev/zero
+Output file: /media/grant/BENCH/outfile
+Block count: 10000
+Machine: Linux lbm 3.13.11-usbfilter-usbfilter #2 SMP Sat May 5 21:35:56 EDT 2018 x86_64 x86_64 x86_64 GNU/Linux
+Mount: /dev/sdb1 on /media/grant/BENCH type vfat (rw,nosuid,nodev,relatime,uid=1002,gid=1002,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,showexec,utf8,flush,errors=remount-ro,uhelper=udisks2)
+Started Mon Oct 22 15:53:17 EDT 2018
+
+run 1: 4KB (32.4 MB/s in 1.26451 s)
+run 2: 4KB (32.3 MB/s in 1.26829 s)
+run 3: 4KB (32.6 MB/s in 1.25754 s)
+run 4: 4KB (32.8 MB/s in 1.24713 s)
+run 5: 4KB (32.7 MB/s in 1.25167 s)
+average: 32.56 MB/s
+
+run 1: 8KB (63.7 MB/s in 1.28545 s)
+run 2: 8KB (63.7 MB/s in 1.28548 s)
+run 3: 8KB (63.1 MB/s in 1.29926 s)
+run 4: 8KB (56.9 MB/s in 1.44052 s)
+run 5: 8KB (63.9 MB/s in 1.28204 s)
+average: 62.26 MB/s
+
+run 1: 16KB (90.4 MB/s in 1.81161 s)
+run 2: 16KB (92.1 MB/s in 1.77984 s)
+run 3: 16KB (90.6 MB/s in 1.80862 s)
+run 4: 16KB (93.5 MB/s in 1.75279 s)
+run 5: 16KB (89.9 MB/s in 1.82205 s)
+average: 91.3 MB/s
+
+run 1: 32KB (122 MB/s in 2.69508 s)
+run 2: 32KB (80.8 MB/s in 4.05665 s)
+run 3: 32KB (98.8 MB/s in 3.31689 s)
+run 4: 32KB (99.6 MB/s in 3.29063 s)
+run 5: 32KB (80.1 MB/s in 4.08838 s)
+average: 96.26 MB/s
+
+run 1: 64KB (110 MB/s in 5.94819 s)
+run 2: 64KB (129 MB/s in 5.06152 s)
+run 3: 64KB (128 MB/s in 5.10313 s)
+run 4: 64KB (127 MB/s in 5.17359 s)
+run 5: 64KB (123 MB/s in 5.32701 s)
+average: 123.4 MB/s
+
+run 1: 128KB (130 MB/s in 10.0583 s)
+run 2: 128KB (130 MB/s in 10.0529 s)
+run 3: 128KB (130 MB/s in 10.1097 s)
+run 4: 128KB (131 MB/s in 10.0407 s)
+run 5: 128KB (130 MB/s in 10.0466 s)
+average: 130.2 MB/s
+
+Eval took 116.226 seconds
+
+# usbfilter enabled, 10 scala
+[grant@lbm ~/lbm/eval >> sudo ./lbm-dd.sh /media/grant/BENCH/outfile 
+----- dd benchmark -----
+
+Input file: /dev/zero
+Output file: /media/grant/BENCH/outfile
+Block count: 10000
+Machine: Linux lbm 3.13.11-usbfilter-usbfilter #2 SMP Sat May 5 21:35:56 EDT 2018 x86_64 x86_64 x86_64 GNU/Linux
+Mount: /dev/sdb1 on /media/grant/BENCH type vfat (rw,nosuid,nodev,relatime,uid=1002,gid=1002,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,showexec,utf8,flush,errors=remount-ro,uhelper=udisks2)
+Started Mon Oct 22 15:58:38 EDT 2018
+
+run 1: 4KB (32.7 MB/s in 1.25321 s)
+run 2: 4KB (32.7 MB/s in 1.25168 s)
+run 3: 4KB (32.7 MB/s in 1.25411 s)
+run 4: 4KB (32.9 MB/s in 1.24626 s)
+run 5: 4KB (32.9 MB/s in 1.2451 s)
+average: 32.78 MB/s
+
+run 1: 8KB (59.2 MB/s in 1.38419 s)
+run 2: 8KB (59.9 MB/s in 1.36828 s)
+run 3: 8KB (64.7 MB/s in 1.26561 s)
+run 4: 8KB (61.2 MB/s in 1.33827 s)
+run 5: 8KB (62.7 MB/s in 1.30558 s)
+average: 61.54 MB/s
+
+run 1: 16KB (90.4 MB/s in 1.81142 s)
+run 2: 16KB (91.0 MB/s in 1.80027 s)
+run 3: 16KB (88.1 MB/s in 1.85944 s)
+run 4: 16KB (93.6 MB/s in 1.75108 s)
+run 5: 16KB (92.9 MB/s in 1.76269 s)
+average: 91.2 MB/s
+
+run 1: 32KB (79.7 MB/s in 4.11278 s)
+run 2: 32KB (107 MB/s in 3.0606 s)
+run 3: 32KB (81.3 MB/s in 4.02874 s)
+run 4: 32KB (78.8 MB/s in 4.15605 s)
+run 5: 32KB (117 MB/s in 2.80288 s)
+average: 92.76 MB/s
+
+run 1: 64KB (130 MB/s in 5.04119 s)
+run 2: 64KB (122 MB/s in 5.35526 s)
+run 3: 64KB (128 MB/s in 5.12962 s)
+run 4: 64KB (120 MB/s in 5.4712 s)
+run 5: 64KB (125 MB/s in 5.24878 s)
+average: 125 MB/s
+
+run 1: 128KB (130 MB/s in 10.1001 s)
+run 2: 128KB (129 MB/s in 10.1732 s)
+run 3: 128KB (128 MB/s in 10.2691 s)
+run 4: 128KB (128 MB/s in 10.2071 s)
+run 5: 128KB (128 MB/s in 10.2006 s)
+average: 128.6 MB/s
+
+Eval took 117.255 seconds
