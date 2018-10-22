@@ -1,0 +1,165 @@
+# LBM Disabled
+
+root@lbm:~# ./lbm-dd.sh /media/grant/BENCH/outfile 
+----- dd benchmark -----
+
+Input file: /dev/zero
+Output file: /media/grant/BENCH/outfile
+Block count: 10000
+Machine: Linux lbm 4.13.13-lbm #18 SMP Wed Aug 29 16:47:48 EDT 2018 x86_64 x86_64 x86_64 GNU/Linux
+Mount: /dev/sdb1 on /media/grant/BENCH type vfat (rw,nosuid,nodev,relatime,uid=1002,gid=1002,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,showexec,utf8,flush,errors=remount-ro,uhelper=udisks2)
+Started Mon Oct 22 15:34:07 EDT 2018
+
+run 1: 4KB (28.1 MB/s in 1.45661 s)
+run 2: 4KB (29.2 MB/s in 1.4041 s)
+run 3: 4KB (29.6 MB/s in 1.38222 s)
+run 4: 4KB (29.0 MB/s in 1.4102 s)
+run 5: 4KB (29.4 MB/s in 1.3939 s)
+average: 29.06 MB/s
+
+run 1: 8KB (52.1 MB/s in 1.57167 s)
+run 2: 8KB (51.9 MB/s in 1.57859 s)
+run 3: 8KB (51.9 MB/s in 1.57881 s)
+run 4: 8KB (54.3 MB/s in 1.50776 s)
+run 5: 8KB (52.0 MB/s in 1.57472 s)
+average: 52.44 MB/s
+
+run 1: 16KB (83.5 MB/s in 1.96203 s)
+run 2: 16KB (83.8 MB/s in 1.95529 s)
+run 3: 16KB (83.2 MB/s in 1.97036 s)
+run 4: 16KB (84.2 MB/s in 1.94595 s)
+run 5: 16KB (84.2 MB/s in 1.94649 s)
+average: 83.78 MB/s
+
+run 1: 32KB (90.1 MB/s in 3.63502 s)
+run 2: 32KB (78.1 MB/s in 4.19329 s)
+run 3: 32KB (113 MB/s in 2.90579 s)
+run 4: 32KB (79.2 MB/s in 4.138 s)
+run 5: 32KB (90.9 MB/s in 3.60301 s)
+average: 90.26 MB/s
+
+run 1: 64KB (130 MB/s in 5.05699 s)
+run 2: 64KB (130 MB/s in 5.05836 s)
+run 3: 64KB (129 MB/s in 5.09236 s)
+run 4: 64KB (125 MB/s in 5.22853 s)
+run 5: 64KB (128 MB/s in 5.11144 s)
+average: 128.4 MB/s
+
+run 1: 128KB (129 MB/s in 10.1259 s)
+run 2: 128KB (130 MB/s in 10.0605 s)
+run 3: 128KB (127 MB/s in 10.3017 s)
+run 4: 128KB (126 MB/s in 10.4259 s)
+run 5: 128KB (126 MB/s in 10.3684 s)
+average: 127.6 MB/s
+
+Eval took 119.944 seconds
+
+# LBM Enabled, 10 scala, no-jit
+root@lbm:~# ./lbm-dd.sh /media/grant/BENCH/outfile 
+----- dd benchmark -----
+
+Input file: /dev/zero
+Output file: /media/grant/BENCH/outfile
+Block count: 10000
+Machine: Linux lbm 4.13.13-lbm #18 SMP Wed Aug 29 16:47:48 EDT 2018 x86_64 x86_64 x86_64 GNU/Linux
+Mount: /dev/sdb1 on /media/grant/BENCH type vfat (rw,nosuid,nodev,relatime,uid=1002,gid=1002,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,showexec,utf8,flush,errors=remount-ro,uhelper=udisks2)
+Started Mon Oct 22 15:40:48 EDT 2018
+
+run 1: 4KB (29.4 MB/s in 1.39416 s)
+run 2: 4KB (29.2 MB/s in 1.4024 s)
+run 3: 4KB (27.7 MB/s in 1.4787 s)
+run 4: 4KB (29.7 MB/s in 1.37972 s)
+run 5: 4KB (28.2 MB/s in 1.45329 s)
+average: 28.84 MB/s
+
+run 1: 8KB (51.0 MB/s in 1.60611 s)
+run 2: 8KB (51.3 MB/s in 1.5984 s)
+run 3: 8KB (51.9 MB/s in 1.57836 s)
+run 4: 8KB (51.0 MB/s in 1.60678 s)
+run 5: 8KB (51.4 MB/s in 1.59373 s)
+average: 51.32 MB/s
+
+run 1: 16KB (79.7 MB/s in 2.05589 s)
+run 2: 16KB (78.7 MB/s in 2.08174 s)
+run 3: 16KB (76.3 MB/s in 2.14797 s)
+run 4: 16KB (78.5 MB/s in 2.0877 s)
+run 5: 16KB (77.4 MB/s in 2.11612 s)
+average: 78.12 MB/s
+
+run 1: 32KB (105 MB/s in 3.11686 s)
+run 2: 32KB (112 MB/s in 2.92393 s)
+run 3: 32KB (98.8 MB/s in 3.31564 s)
+run 4: 32KB (102 MB/s in 3.20127 s)
+run 5: 32KB (105 MB/s in 3.11014 s)
+average: 104.56 MB/s
+
+run 1: 64KB (128 MB/s in 5.10122 s)
+run 2: 64KB (130 MB/s in 5.04336 s)
+run 3: 64KB (130 MB/s in 5.03963 s)
+run 4: 64KB (126 MB/s in 5.1958 s)
+run 5: 64KB (130 MB/s in 5.03805 s)
+average: 128.8 MB/s
+
+run 1: 128KB (131 MB/s in 9.982 s)
+run 2: 128KB (131 MB/s in 10.0362 s)
+run 3: 128KB (128 MB/s in 10.2515 s)
+run 4: 128KB (125 MB/s in 10.4999 s)
+run 5: 128KB (129 MB/s in 10.1246 s)
+average: 128.8 MB/s
+
+Eval took 117.561 seconds
+
+# LBM Enabled, 10 scala, jit
+root@lbm:~# ./lbm-dd.sh /media/grant/BENCH/outfile 
+----- dd benchmark -----
+
+Input file: /dev/zero
+Output file: /media/grant/BENCH/outfile
+Block count: 10000
+Machine: Linux lbm 4.13.13-lbm #18 SMP Wed Aug 29 16:47:48 EDT 2018 x86_64 x86_64 x86_64 GNU/Linux
+Mount: /dev/sdb1 on /media/grant/BENCH type vfat (rw,nosuid,nodev,relatime,uid=1002,gid=1002,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,showexec,utf8,flush,errors=remount-ro,uhelper=udisks2)
+Started Mon Oct 22 15:43:37 EDT 2018
+
+run 1: 4KB (29.8 MB/s in 1.375 s)
+run 2: 4KB (29.3 MB/s in 1.39976 s)
+run 3: 4KB (29.4 MB/s in 1.39402 s)
+run 4: 4KB (29.4 MB/s in 1.39287 s)
+run 5: 4KB (30.0 MB/s in 1.36686 s)
+average: 29.58 MB/s
+
+run 1: 8KB (54.3 MB/s in 1.50834 s)
+run 2: 8KB (52.9 MB/s in 1.54859 s)
+run 3: 8KB (52.1 MB/s in 1.57126 s)
+run 4: 8KB (55.6 MB/s in 1.47207 s)
+run 5: 8KB (48.9 MB/s in 1.67466 s)
+average: 52.76 MB/s
+
+run 1: 16KB (82.6 MB/s in 1.98394 s)
+run 2: 16KB (80.8 MB/s in 2.02853 s)
+run 3: 16KB (84.2 MB/s in 1.94692 s)
+run 4: 16KB (83.4 MB/s in 1.96467 s)
+run 5: 16KB (82.3 MB/s in 1.99033 s)
+average: 82.66 MB/s
+
+run 1: 32KB (113 MB/s in 2.90708 s)
+run 2: 32KB (103 MB/s in 3.19571 s)
+run 3: 32KB (113 MB/s in 2.90864 s)
+run 4: 32KB (111 MB/s in 2.94695 s)
+run 5: 32KB (116 MB/s in 2.82439 s)
+average: 111.2 MB/s
+
+run 1: 64KB (123 MB/s in 5.3141 s)
+run 2: 64KB (129 MB/s in 5.08321 s)
+run 3: 64KB (130 MB/s in 5.05711 s)
+run 4: 64KB (125 MB/s in 5.25232 s)
+run 5: 64KB (118 MB/s in 5.55145 s)
+average: 125 MB/s
+
+run 1: 128KB (129 MB/s in 10.1667 s)
+run 2: 128KB (127 MB/s in 10.3573 s)
+run 3: 128KB (125 MB/s in 10.5149 s)
+run 4: 128KB (126 MB/s in 10.3821 s)
+run 5: 128KB (130 MB/s in 10.0975 s)
+average: 127.4 MB/s
+
+Eval took 117.177 seconds
