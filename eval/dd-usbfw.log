@@ -1,0 +1,114 @@
+# Vanilla (no usbfw)
+
+----- dd benchmark -----
+
+Input file: /dev/zero
+Output file: /mnt/foo
+Block count: 10000
+Machine: FreeBSD usbfirewall 11.2-RELEASE FreeBSD 11.2-RELEASE #0: Sat Sep 1 13:54:46 EDT 2018 root@usbfirewall:/usr/obj/usr/src/sys/USBFIREWALL amd64
+Mount: /dev/da0p1 on /mnt (msdosfs, local)
+Started Thu Oct 25 00:26:41 EDT 2018
+
+run 1: 4KB (101 MB/s in 0.404946 s)
+run 2: 4KB (95.5 MB/s in 0.42906 s)
+run 3: 4KB (105 MB/s in 0.391822 s)
+run 4: 4KB (90.4 MB/s in 0.452892 s)
+run 5: 4KB (96.2 MB/s in 0.425738 s)
+average: 97.62 MB/s
+
+run 1: 8KB (89.4 MB/s in 0.916685 s)
+run 2: 8KB (87.2 MB/s in 0.939562 s)
+run 3: 8KB (90.3 MB/s in 0.907448 s)
+run 4: 8KB (91.1 MB/s in 0.898929 s)
+run 5: 8KB (88.0 MB/s in 0.930997 s)
+average: 89.2 MB/s
+
+run 1: 16KB (87.1 MB/s in 1.88175 s)
+run 2: 16KB (88.0 MB/s in 1.8616 s)
+run 3: 16KB (87.6 MB/s in 1.8701 s)
+run 4: 16KB (79.2 MB/s in 2.06864 s)
+run 5: 16KB (87.6 MB/s in 1.87098 s)
+average: 85.9 MB/s
+
+run 1: 32KB (86.8 MB/s in 3.77488 s)
+run 2: 32KB (86.5 MB/s in 3.78651 s)
+run 3: 32KB (85.6 MB/s in 3.82965 s)
+run 4: 32KB (86.3 MB/s in 3.79484 s)
+run 5: 32KB (86.6 MB/s in 3.78352 s)
+average: 86.36 MB/s
+
+run 1: 64KB (85.1 MB/s in 7.7047 s)
+run 2: 64KB (86.4 MB/s in 7.58866 s)
+run 3: 64KB (86.4 MB/s in 7.58103 s)
+run 4: 64KB (86.4 MB/s in 7.58907 s)
+run 5: 64KB (84.7 MB/s in 7.73641 s)
+average: 85.8 MB/s
+
+run 1: 128KB (86.1 MB/s in 15.2208 s)
+run 2: 128KB (85.8 MB/s in 15.2733 s)
+run 3: 128KB (86.6 MB/s in 15.1422 s)
+run 4: 128KB (85.7 MB/s in 15.2962 s)
+run 5: 128KB (86.6 MB/s in 15.1422 s)
+average: 86.16 MB/s
+
+Eval took 149.495 seconds
+
+
+
+
+# USBFW
+
+----- dd benchmark -----
+
+Input file: /dev/zero
+Output file: /mnt/foo
+Block count: 10000
+Machine: FreeBSD usbfirewall 11.2-RELEASE FreeBSD 11.2-RELEASE #2: Thu Oct 25 04:18:27 EDT 2018 root@usbfirewall:/usr/obj/usr/src/sys/USBFIREWALL amd64
+Mount: /dev/da0p1 on /mnt (msdosfs, local)
+Started Thu Oct 25 20:51:29 EDT 2018
+
+run 1: 4KB (99.2 MB/s in 0.412878 s)
+run 2: 4KB (105 MB/s in 0.390959 s)
+run 3: 4KB (87.4 MB/s in 0.46888 s)
+run 4: 4KB (105 MB/s in 0.391425 s)
+run 5: 4KB (103 MB/s in 0.396328 s)
+average: 99.92 MB/s
+
+run 1: 8KB (86.7 MB/s in 0.94508 s)
+run 2: 8KB (84.7 MB/s in 0.966655 s)
+run 3: 8KB (88.7 MB/s in 0.923475 s)
+run 4: 8KB (90.6 MB/s in 0.904464 s)
+run 5: 8KB (83.4 MB/s in 0.982445 s)
+average: 86.82 MB/s
+
+run 1: 16KB (87.8 MB/s in 1.86602 s)
+run 2: 16KB (85.7 MB/s in 1.91069 s)
+run 3: 16KB (82.6 MB/s in 1.98281 s)
+run 4: 16KB (87.2 MB/s in 1.87938 s)
+run 5: 16KB (87.4 MB/s in 1.874 s)
+average: 86.14 MB/s
+
+run 1: 32KB (83.3 MB/s in 3.93145 s)
+run 2: 32KB (86.3 MB/s in 3.79483 s)
+run 3: 32KB (83.0 MB/s in 3.94648 s)
+run 4: 32KB (86.7 MB/s in 3.78122 s)
+run 5: 32KB (86.7 MB/s in 3.77948 s)
+average: 85.2 MB/s
+
+run 1: 64KB (86.4 MB/s in 7.58884 s)
+run 2: 64KB (86.3 MB/s in 7.58981 s)
+run 3: 64KB (84.8 MB/s in 7.72724 s)
+run 4: 64KB (86.4 MB/s in 7.5858 s)
+run 5: 64KB (86.3 MB/s in 7.58988 s)
+average: 86.04 MB/s
+
+run 1: 128KB (85.5 MB/s in 15.3284 s)
+run 2: 128KB (86.6 MB/s in 15.1421 s)
+run 3: 128KB (85.7 MB/s in 15.2937 s)
+run 4: 128KB (86.6 MB/s in 15.1421 s)
+run 5: 128KB (85.7 MB/s in 15.2855 s)
+average: 86.02 MB/s
+
+Eval took 149.803 seconds
+
+
