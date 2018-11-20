@@ -46,7 +46,7 @@ BPF_EXIT_INSN(),					/* ret 0 */
 
 /* make sure we have a valid response payload */
 BPF_LDX_MEM(BPF_W, BPF_REG_7, BPF_REG_1, offsetof(struct __lbm_usb, actual_length)),
-BPF_JMP_IMM(BPF_JEQ, BPF_REG_7, 0, 2),			/* if actual_length == 2: goto PC+2; */
+BPF_JMP_IMM(BPF_JEQ, BPF_REG_7, 4, 2),			/* if actual_length == 4: goto PC+2; */
 BPF_MOV64_IMM(BPF_REG_0, 1),                            /* else: drop the pkt (malformed) */
 BPF_EXIT_INSN(),                                        /* ret 1 */
 BPF_MOV64_IMM(BPF_REG_0, 0),                            /* accept the pkt */
